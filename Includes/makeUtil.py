@@ -25,7 +25,7 @@ COMMENT_CHAR = '#'
 # Commands callable as $(COMMAND_NAME Arguments).
 MACRO_COMMANDS = \
 {   # See https://linuxhandbook.com/execute-shell-command-python/
-    "shell": lambda code, macros: os.popen(code).rstrip(' \n\r\t')
+    "shell": lambda code, macros: os.popen(code).read().rstrip(' \n\r\t')
 }
 
 # Targets that are used by this parser/should be ignored.
