@@ -328,7 +328,11 @@ def satisfyDependencies(target, targets, macros):
         selfMTime = os.path.getmtime(target)
 
     def isPhony(target):
-        return ('.PHONY' in targets and target in targets['.PHONY']) or target in MAGIC_TARGETS
+        if not ".PHONY" in targets:
+            return False
+        
+        phonyTargets,_ = targets['.PHONY']
+        return target in phonyTargets or target in MAGIC_TARGETS
     selfPhony = isPhony(target)
     
     def needGenerate(other):
