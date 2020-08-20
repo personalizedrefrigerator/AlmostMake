@@ -19,6 +19,16 @@ def printHelp():
     print("\t\t Keep going if errors are encountered.")
     cprint("    -p", FORMAT_COLORS['GREEN'])
     print("\t\t Rather than finding targets, print the makefile, with top-level targets expanded.")
+    print()
+    cprint("Note: ", FORMAT_COLORS['PURPLE'])
+    print("""Macro definitions that override those from the environment
+can be provided in addition to targets and options. For example,""")
+    cprint("    make target1 target2 target3 CC=gcc CFLAGS=-O3", FORMAT_COLORS['YELLOW'])
+    print("""
+should make target1, target2, and target3 with the
+macros CC and CFLAGS by default set to gcc and -O3,
+respectively. 
+    """)
 
 # On commandline run...
 if __name__ == "__main__":
