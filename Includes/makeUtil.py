@@ -1,6 +1,12 @@
 #!python
 
-import re, sys, os.path, subprocess
+# Parses very simple Makefiles.
+# Useful Resources:
+#  - Chris Wellons' "A Tutorial on Portable Makefiles". https://nullprogram.com/blog/2017/08/20/
+# 
+
+import re, sys, os, subprocess
+from Includes.printUtil import *
 
 # Options
 STOP_ON_ERROR = True
@@ -18,12 +24,19 @@ COMMENT_CHAR = '#'
 
 # Commands callable as $(COMMAND_NAME Arguments).
 MACRO_COMMANDS = \
+{   # See https://linuxhandbook.com/execute-shell-command-python/
+    "shell": lambda code, macros: os.popen(code).rstrip(' \n\r\t')
+}
+
+# Targets that are used by this parser/should be ignored.
+MAGIC_TARGETS = \
 {
-    "shell": lambda code, macros: subprocess.check_output(code).decode('utf-8').rstrip(' \n\r\t')
+    ".POSIX",
+    ".SUFFIXES"
 }
 
 def reportError(message):
-    sys.stderr.write(str(message) + "\n")
+    cprint(str(message) + "\n", "RED", file=sys.stderr)
     if STOP_ON_ERROR:
         print ("Stopping.")
         sys.exit(1)
@@ -164,7 +177,7 @@ def isMacroInvoke(text):
     return IS_MACRO_INVOKE_REGEXP.match(text) != None
 
 # Expand and handle macro definitions 
-# in contents.
+# in [contents].
 def expandMacros(contents, macros = {}):
     lines = getLines(contents)
     result = ''
@@ -174,8 +187,10 @@ def expandMacros(contents, macros = {}):
         line = stripComments(line)
         if isMacroDef(line) and not line.startswith(preRuleChar):
             parts = MACRO_SET_REGEXP.split(line)
-            name = parts[0].strip()
-            definedTo = ":=".join(parts[1:]).strip()
+            name = parts[0]
+            definedTo = line[len(name):]
+            definedTo = MACRO_SET_REGEXP.sub("", definedTo, count=1) # Remove the first set character.
+            name = name.strip()
             macros[name] = expandMacroUsages(definedTo, macros).rstrip()
 #            print("%s defined to %s" % (name, macros[name]))
         elif isMacroInvoke(line) and not line.startswith(preRuleChar):
@@ -249,7 +264,6 @@ def satisfyDependencies(target, targets, macros):
     target = target.strip()
     if not target in targets:
         # Can we generate a recipe?
-        
         for key in targets.keys():
 #            print("Checking target %s..." % key)
             if "%" in key:
@@ -267,6 +281,38 @@ def satisfyDependencies(target, targets, macros):
 
                     targets[newKey] = (deps, rules)
                     break
+            elif key.startswith(".") and "." in key[1:]:
+                shortKey = key[1:] # Remove the first '.'
+                parts = shortKey.split('.') # NOT a regex.
+                requires = '.' + parts[0].strip()
+                creates = '.' + parts[1].strip()
+                
+                # Don't evaluate... The user probably didn't intend for us to
+                # make a recipe from this.
+                if len(parts) > 2:
+                    continue
+                
+                if not targets[".SUFFIXES"]:
+                    continue
+                
+                validSuffixes,_ = targets[".SUFFIXES"]
+                
+                # Are these valid suffixes?
+                if not creates in validSuffixes \
+                        or not requires in validSuffixes:
+                    continue
+                
+                # Does it fit the current target?
+                if target.endswith(creates):
+                    deps,rules = targets[key]
+                    
+                    newDeps = [ dep for dep in deps if dep != '' ]
+                    withoutExtension = target[: - len(creates)]
+                    
+                    newDeps.append(withoutExtension + requires)
+                    
+                    targets[target] = (newDeps, rules)
+                    break
     selfExists = os.path.exists(target)
     selfMTime = 0
 
@@ -282,7 +328,7 @@ def satisfyDependencies(target, targets, macros):
         selfMTime = os.path.getmtime(target)
 
     def isPhony(target):
-        return '.PHONY' in targets and target in targets['.PHONY']
+        return ('.PHONY' in targets and target in targets['.PHONY']) or target in MAGIC_TARGETS
     selfPhony = isPhony(target)
     
     def needGenerate(other):
@@ -332,22 +378,31 @@ def satisfyDependencies(target, targets, macros):
         if command.startswith("-"):
             command = command[1:]
         try:
-            print(subprocess.check_output(command).decode("UTF-8"))
-        except:
-            if haltOnFail:
-                reportError("Unable to run ``%s``." % command)
+            status = os.system(command) # 
+            
+            if status != 0 and haltOnFail:
+                reportError("Error Running Command:\n    %s\n    Exited with status-code %s." \
+                                 % (command, str(status)))
+        except Exception as e:
+            if haltOnFail: # e.g. -rm foo should be silent even if it cannot remove foo.
+                reportError("Unable to run ``%s``. \n\nMessage:\n%s" % (command, str(e)))
     return True
+
+# Get a list of suggested default macros from the environment
+def getDefaultMacros():
+    result = { }
+    
+    for name in os.environ:
+        result[name] = os.environ[name]
+    
+    return result
 
 # Run commands specified to generate
 # dependencies of target by the contents
 # of the makefile given in contents.
-def runMakefile(contents, target = ''):
-    contents, macros = expandMacros(contents)
+def runMakefile(contents, target = '', defaultMacros={ "MAKE": "make" }):
+    contents, macros = expandMacros(contents, defaultMacros)
     targetRecipes, targets = getTargetActions(contents)
-    
-    # Define macros, as needed...
-    if not "MAKE" in macros:
-        macros["MAKE"] = "make"
 
     if target == '' and len(targets) > 0:
         target = targets[0]

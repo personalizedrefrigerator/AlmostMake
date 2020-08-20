@@ -1,5 +1,7 @@
 #!python
 
+import sys
+
 FORMAT_COLORS = \
 {
     "GREEN": "\033[32m",
@@ -10,10 +12,10 @@ FORMAT_COLORS = \
 FORMAT_RESET = "\033[0m"
 FORMAT_OUTPUT = True
 
-def cprint(text, color):
+def cprint(text, color, file=sys.stdout):
     if color in FORMAT_COLORS and FORMAT_OUTPUT:
-        print(FORMAT_COLORS[color] + str(text) + FORMAT_RESET, end='', flush=True)
-    elif type(color) == str:
-        print(color + str(text) + FORMAT_RESET, end='', flush=True)
+        print(FORMAT_COLORS[color] + str(text) + FORMAT_RESET, end='', flush=True, file=file)
+    elif type(color) == str and FORMAT_OUTPUT:
+        print(color + str(text) + FORMAT_RESET, end='', flush=True, file=file)
     else:
-        print(text, end='', flush=True)
+        print(text, end='', flush=True, file=file)

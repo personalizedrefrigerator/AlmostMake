@@ -2,10 +2,12 @@
 # args: The list of arguments
 #    given to the program (i.e.
 #    from sys.argv). Note that
-# any default arguments (come before
-# keys) are put into a list under the
+# any default arguments (not immediately after 
+# a key) are put into a list under the
 # key defaultArgKey. If no default args,
 # the list is empty.
+# For example, 
+#    make 
 def parseArgs(args, 
         mappings = 
         {
@@ -18,12 +20,6 @@ def parseArgs(args,
     args = args[1:] # Omit the filename.
     result[defaultArgKey] = []
 
-    # Populate default arguments.
-    i = 0
-    while i < len(args) and not args[i].startswith('-'):
-        result[defaultArgKey].append(args[i])
-        i += 1
-
     for chunk in args:
         if chunk.startswith("--"):
             if lastArgText:
@@ -34,9 +30,11 @@ def parseArgs(args,
            if lastArgText:
                result[lastArgText] = True
                lastArgText = None
-        elif lastArgText:
+        elif lastArgText: # Assign to previous.
             result[lastArgText] = chunk
             lastArgText = None
+        else: # Default argument.
+            result[defaultArgKey].append(chunk)
     if lastArgText:
         result[lastArgText] = True
 
