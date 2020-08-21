@@ -1,4 +1,4 @@
-#!python
+#!/usr/bin/python3
 import sys, os.path
 from Includes.printUtil import *
 from Includes.makeUtil import *
