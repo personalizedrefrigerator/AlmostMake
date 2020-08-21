@@ -5,7 +5,7 @@
 #  - Chris Wellons' "A Tutorial on Portable Makefiles". https://nullprogram.com/blog/2017/08/20/
 # 
 
-import re, sys, os, subprocess
+import re, sys, os, subprocess, time
 from Includes.printUtil import *
 
 # Options
@@ -382,14 +382,10 @@ def satisfyDependencies(target, targets, macros):
         if command.startswith("-"):
             command = command[1:]
         try:
-            status = os.system(command) # 
-            
-            if status != 0 and haltOnFail:
-                reportError("Error Running Command:\n    %s\n    Exited with status-code %s." \
-                                 % (command, str(status)))
+            status = subprocess.run(command, shell=True, check=True)
         except Exception as e:
             if haltOnFail: # e.g. -rm foo should be silent even if it cannot remove foo.
-                reportError("Unable to run ``%s``. \n\nMessage:\n%s" % (command, str(e)))
+                reportError("Unable to run command:\n    ``%s``. \n\n  Message:\n%s" % (command, str(e)))
     return True
 
 # Get a list of suggested default macros from the environment
