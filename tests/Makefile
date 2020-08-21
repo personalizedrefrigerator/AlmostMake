@@ -11,7 +11,7 @@ SEND_MACROS   = EXEC_PROGRAM=$(EXEC_PROGRAM) CC=$(CC) CFLAGS=$(CFLAGS) TEST_MACR
 all: testSimple testPhony testMacros
 
 test%:
-	cd $@; \
+	cd $@ && \
 	$(MAKE) clean check clean $(SEND_MACROS)
 
 .PHONY: testSimple testPhony testMacros
