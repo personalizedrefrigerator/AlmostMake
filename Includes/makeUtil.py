@@ -11,6 +11,7 @@ from Includes.printUtil import *
 
 # Options
 STOP_ON_ERROR = True
+SILENT = False
 
 # Regular expressions
 MACRO_NAME_EXP = "[a-zA-Z0-9_\\@\\^\\<]"
@@ -18,7 +19,7 @@ MACRO_NAME_CHAR_REGEXP = re.compile(MACRO_NAME_EXP)
 MACRO_SET_REGEXP = re.compile("\\s*([:+?]?)\\=\\s*")
 IS_MACRO_DEF_REGEXP = re.compile("^%s+\\s*[:+?]?\\=.*" % MACRO_NAME_EXP, re.IGNORECASE)
 IS_MACRO_INVOKE_REGEXP = re.compile(".*(?:^|[^\\$])[\\(]?%s+[\\)]?" % MACRO_NAME_EXP)
-WHITESPACE = re.compile("\s")
+SPACE_CHARS = re.compile("\\s")
 
 RECIPE_START_CHAR = '\t'
 COMMENT_CHAR = '#'
@@ -37,7 +38,9 @@ MAGIC_TARGETS = \
 }
 
 def reportError(message):
-    cprint(str(message) + "\n", "RED", file=sys.stderr)
+    if not SILENT or STOP_ON_ERROR:
+        cprint(str(message) + "\n", "RED", file=sys.stderr)
+    
     if STOP_ON_ERROR:
         print ("Stopping.")
         sys.exit(1)
@@ -46,6 +49,10 @@ def reportError(message):
 def setStopOnError(stopOnErr):
     global STOP_ON_ERROR
     STOP_ON_ERROR = stopOnErr
+
+def setSilent(silent):
+    global SILENT
+    SILENT = silent
 
 # Split content by lines, but
 # paying attention to escaped newline
@@ -248,11 +255,11 @@ def getTargetActions(content):
                 else:
                     continue
             sepIndex = line.index(':')
-            allGenerates = WHITESPACE.split(line[:sepIndex].strip())
+            allGenerates = SPACE_CHARS.split(line[:sepIndex].strip())
             preReqs = line[sepIndex + 1 :].strip()
             
             # Get the dependencies.
-            dependsOn = WHITESPACE.split(preReqs)
+            dependsOn = SPACE_CHARS.split(preReqs)
             for generates in allGenerates:
                 currentDeps = []
                 currentDeps.extend(dependsOn)
@@ -341,6 +348,7 @@ def satisfyDependencies(target, targets, macros):
             return 1
         else:
             reportError("No rule to make %s." % target)
+            return # If still running, the user wants us to exit successfully.
     runRecipe = False
     deps, commands = targets[target]
     
@@ -396,7 +404,7 @@ def satisfyDependencies(target, targets, macros):
         command = expandMacroUsages(command, macros).strip()
         if command.startswith("@"):
             command = command[1:]
-        else:
+        elif not SILENT:
             print(command)
         haltOnFail = not command.startswith("-")
         if command.startswith("-"):
@@ -433,5 +441,5 @@ def runMakefile(contents, target = '', defaultMacros={ "MAKE": "make" }, overrid
 
     satisfied = satisfyDependencies(target, targetRecipes, macros)
 
-    if not satisfied:
+    if not satisfied and not SILENT:
         print("Nothing to be done for target ``%s``." % target)

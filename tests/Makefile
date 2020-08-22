@@ -10,9 +10,9 @@ SEND_MACROS  := EXEC_PROGRAM=$(EXEC_PROGRAM) CC=$(CC) CFLAGS=$(CFLAGS) TEST_MACR
 
 # Perhaps not legal in other versions of make, but it
 # should work here. As such, it is tested.
-all: testSimple testPhony testMacros
+all: testSimple testPhony testMacros testRecursion
 
 test%:
 	$(MAKE) -C $@ clean check clean $(SEND_MACROS)
 
-.PHONY: testSimple testPhony testMacros
+.PHONY: testSimple testPhony testMacros testRecursion

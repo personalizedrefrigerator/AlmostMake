@@ -4,6 +4,25 @@ from Includes.printUtil import *
 from Includes.makeUtil import *
 from Includes.argsUtil import *
 
+ARGUMENT_MAPPINGS = \
+{
+    'h': "help",
+    'k': 'keep-going',
+    'p': 'print-expanded',
+#   'n': 'just-print', # To-do
+    'f': 'file',
+    'C': 'directory',
+    's': 'silent'
+}
+
+# Don't save these when we recurse...
+NO_SAVE_ARGS = \
+{
+    'C', 'directory',
+    'f', 'file',
+    'default'
+}
+
 def printHelp():
     cprint("Help: \n", FORMAT_COLORS['YELLOW'])
     cprint(" Summary: ", FORMAT_COLORS['YELLOW'])
@@ -21,6 +40,8 @@ def printHelp():
     print("\t\t Rather than finding targets, print the makefile, with top-level targets expanded.")
     cprint("    -C dir", FORMAT_COLORS['GREEN'])
     print("\t Switch to directory, dir, before running make. ")
+    cprint("    -s, --silent", FORMAT_COLORS['GREEN'])
+    print("\t In most cases, don't print output.")
     print()
     cprint("Note: ", FORMAT_COLORS['PURPLE'])
     print("Macro definitions that override those from the environment" +
@@ -31,15 +52,11 @@ def printHelp():
 
 # On commandline run...
 if __name__ == "__main__":
-    args = parseArgs(sys.argv,
-    {
-        'h': "help",
-        'k': 'keep-going',
-        'p': 'print-expanded',
-#        'n': 'just-print', # To-do
-        'f': 'file',
-        'C': 'directory'
-    })
+    args = parseArgs(sys.argv, ARGUMENT_MAPPINGS)
+    
+    # Fill args from MAKEFLAGS (see https://www.gnu.org/software/make/manual/make.html#How-the-MAKE-Variable-Works)
+    args = fillArgsFromEnv(args, "MAKEFLAGS", ARGUMENT_MAPPINGS) # Previously-defined args take precedence.
+    saveArgsInEnv(args, "MAKEFLAGS", NO_SAVE_ARGS) # For recursive calls to make.
     
     if 'help' in args:
         printHelp()
@@ -64,6 +81,9 @@ if __name__ == "__main__":
 
         if 'keep-going' in args:
             setStopOnError(False)
+        
+        if 'silent' in args:
+            setSilent(True)
 
         if 'file' in args:
             fileName = args['file']

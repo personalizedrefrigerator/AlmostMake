@@ -1,3 +1,7 @@
+import os, re
+
+SPACE_CHARS = re.compile('\\s')
+
 # Parse given arguments.
 # args: The list of arguments
 #    given to the program (i.e.
@@ -13,14 +17,19 @@ def parseArgs(args,
         {
             'h': 'help'
         }, 
-        defaultArgKey = 'default'):
+        defaultArgKey = 'default',
+        excludeFilename = True):
     result = { }
     singleChars = []
     lastArgText = None
-    args = args[1:] # Omit the filename.
+    if excludeFilename:
+        args = args[1:] # Omit the filename.
     result[defaultArgKey] = []
 
     for chunk in args:
+        if len(chunk) == 0:
+            continue    
+        
         if chunk.startswith("--"):
             if lastArgText:
                 result[lastArgText] = True
@@ -50,4 +59,60 @@ def parseArgs(args,
     
     return result
 
+# Fill in an already-populated argument list
+# with arguments defined in an environment variable.
+# This variable should have name [envVariable].
+# If [givenOverridesNew] is false, then arguments
+# found in the variable override those given.
+# Returns output as a new argument map. [mappings]
+# is used to parse arguments in the environment.
+def fillArgsFromEnv(argList, envVariable, mappings, defaultArgKey='default', givenOverridesNew=True):
+    if not envVariable in os.environ:
+        return argList
+    
+    # Get the argument mapping from the environment variable...
+    envArgList = SPACE_CHARS.split(os.environ[envVariable])
+    argsFromEnv = parseArgs(envArgList, mappings, defaultArgKey, excludeFilename = False)
 
+    result = {}
+    
+    # Single-line ifs... Common in Lua... 
+    # I don't think I've seen them in Python... Is this bad style?
+    firstMap = not givenOverridesNew and argList or argsFromEnv
+    secondMap = givenOverridesNew and argList or argsFromEnv
+    
+    for key in firstMap:
+        result[key] = firstMap[key]
+    
+    for key in secondMap:
+        result[key] = secondMap[key]
+    
+    return result
+
+# Save the list of arguments specified by [argMap]
+# in the environment variable, [envVariable].
+# Question: Do we need to clean up after exiting???
+def saveArgsInEnv(argMap, envVariable, doNotSave, defaultKey="default"):
+    argString = ""
+    
+    for key in argMap:
+        if key in doNotSave:
+            continue
+    
+        prefix = "--"
+        defTo = argMap[key]
+        
+        if key == defaultKey:
+            prefix = ""
+            defTo = " ".join(argMap[key]) # default arg stores a list.
+        elif len(key) == 1:
+            prefix = "-"
+        
+        if argMap[key] == True:
+            argString += prefix + key
+        else:
+            argString += prefix + key + " " + defTo
+        
+        argString += " "
+    
+    os.environ[envVariable] = argString
