@@ -1,4 +1,4 @@
-import os, re
+import os, re, shlex
 
 SPACE_CHARS = re.compile('\\s')
 
@@ -71,7 +71,7 @@ def fillArgsFromEnv(argList, envVariable, mappings, defaultArgKey='default', giv
         return argList
     
     # Get the argument mapping from the environment variable...
-    envArgList = SPACE_CHARS.split(os.environ[envVariable])
+    envArgList = shlex.split(os.environ[envVariable])
     argsFromEnv = parseArgs(envArgList, mappings, defaultArgKey, excludeFilename = False)
 
     result = {}
@@ -100,11 +100,12 @@ def saveArgsInEnv(argMap, envVariable, doNotSave, defaultKey="default"):
             continue
     
         prefix = "--"
-        defTo = argMap[key]
+        defTo = str(argMap[key])
+        defTo = shlex.quote(defTo)
         
-        if key == defaultKey:
-            prefix = ""
-            defTo = " ".join(argMap[key]) # default arg stores a list.
+        if key == defaultKey: # If the default, we have a list...
+            prefix = "" # Quote each individually.
+            defTo = " ".join([ shlex.quote(val) for val in key ]) # default arg stores a list.
         elif len(key) == 1:
             prefix = "-"
         
