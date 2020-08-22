@@ -8,7 +8,7 @@ clean:
 
 macroTest: testMacroConcat testMacroConditionalSet
 	echo $(PATH) | grep $(shell echo $PATH)
-	echo "$(TEST_MACRO)" | grep "Testing1234=:= := This 'should ' work!"
+	echo "$(TEST_MACRO)" | grep "Testing1234=:= := This \*\*should \*\* work!"
 	$(MAKE) -C overrideMacrosTest DOES_IT_OVERRIDE=YesItDoes
 
 A  = 123
