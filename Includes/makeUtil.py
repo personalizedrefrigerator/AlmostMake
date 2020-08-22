@@ -2,9 +2,9 @@
 
 # Parses very simple Makefiles.
 # Useful Resources:
-#  - Chris Wellons' "A Tutorial on Portable Makefiles". https://nullprogram.com/blog/2017/08/20/
-#  - GNUMake: https://www.gnu.org/software/make/manual/make.html
-#  - BSDMake: http://khmere.com/freebsd_book/html/ch01.html
+#  - Chris Wellons' "A Tutorial on Portable Makefiles". https://nullprogram.com/blog/2017/08/20/ Accessed August 22, 2020
+#  - GNUMake: https://www.gnu.org/software/make/manual/make.html Accessed August 22, 2020
+#  - BSDMake: http://khmere.com/freebsd_book/html/ch01.html Accessed Aug 22 2020 
 
 import re, sys, os, subprocess, time
 from Includes.printUtil import *
@@ -15,8 +15,8 @@ STOP_ON_ERROR = True
 # Regular expressions
 MACRO_NAME_EXP = "[a-zA-Z0-9_\\@\\^\\<]"
 MACRO_NAME_CHAR_REGEXP = re.compile(MACRO_NAME_EXP)
-MACRO_SET_REGEXP = re.compile("\\s*\\:?\\=\\s*")
-IS_MACRO_DEF_REGEXP = re.compile("^%s+\\s*\\:?\\=.*" % MACRO_NAME_EXP, re.IGNORECASE)
+MACRO_SET_REGEXP = re.compile("\\s*([:+?]?)\\=\\s*")
+IS_MACRO_DEF_REGEXP = re.compile("^%s+\\s*[:+?]?\\=.*" % MACRO_NAME_EXP, re.IGNORECASE)
 IS_MACRO_INVOKE_REGEXP = re.compile(".*(?:^|[^\\$])[\\(]?%s+[\\)]?" % MACRO_NAME_EXP)
 WHITESPACE = re.compile("\s")
 
@@ -191,8 +191,27 @@ def expandMacros(contents, macros = {}):
             name = parts[0]
             definedTo = line[len(name):]
             definedTo = MACRO_SET_REGEXP.sub("", definedTo, count=1) # Remove the first set character.
+            defineType = MACRO_SET_REGEXP.search(line).group(1) # E.g. :,+,? so we can do += or ?=
             name = name.strip()
-            macros[name] = expandMacroUsages(definedTo, macros).rstrip()
+            
+            doNotDefine = False
+            concatWith = ''
+            deferExpand = False
+            
+            # ?=, so only define if undefined.
+            if defineType == '?' and name in macros:
+                doNotDefine = True
+            elif defineType == '+' and name in macros:
+                concatWith = macros[name]
+            elif defineType == '':
+                deferExpand = True
+            
+            if not doNotDefine:
+                if not deferExpand:
+                    macros[name] = concatWith + expandMacroUsages(definedTo, macros).rstrip()
+                else:
+#                    print("Expansion defered: %s = %s" % (name, definedTo))
+                    macros[name] = concatWith + definedTo.rstrip()
 #            print("%s defined to %s" % (name, macros[name]))
         elif isMacroInvoke(line) and not line.startswith(preRuleChar):
             result += expandMacroUsages(line, macros)
