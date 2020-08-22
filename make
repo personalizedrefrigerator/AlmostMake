@@ -19,16 +19,15 @@ def printHelp():
     print("\t\t Keep going if errors are encountered.")
     cprint("    -p", FORMAT_COLORS['GREEN'])
     print("\t\t Rather than finding targets, print the makefile, with top-level targets expanded.")
+    cprint("    -C dir", FORMAT_COLORS['GREEN'])
+    print("\t Switch to directory, dir, before running make. ")
     print()
     cprint("Note: ", FORMAT_COLORS['PURPLE'])
-    print("""Macro definitions that override those from the environment
-can be provided in addition to targets and options. For example,""")
+    print("Macro definitions that override those from the environment" +
+" can be provided in addition to targets and options. For example,")
     cprint("    make target1 target2 target3 CC=gcc CFLAGS=-O3", FORMAT_COLORS['YELLOW'])
-    print("""
-should make target1, target2, and target3 with the
-macros CC and CFLAGS by default set to gcc and -O3,
-respectively. 
-    """)
+    print("should make target1, target2, and target3 with the " +
+          "macros CC and CFLAGS by default set to gcc and -O3, respectively.")
 
 # On commandline run...
 if __name__ == "__main__":
@@ -36,7 +35,10 @@ if __name__ == "__main__":
     {
         'h': "help",
         'k': 'keep-going',
-        'p': 'print-expanded'
+        'p': 'print-expanded',
+#        'n': 'just-print', # To-do
+        'f': 'file',
+        'C': 'directory'
     })
     
     if 'help' in args:
@@ -46,6 +48,14 @@ if __name__ == "__main__":
         targets = []
         
         defaultMacros = getDefaultMacros() # Fills with macros from environment, etc.
+        overrideMacros = {}
+        
+        if 'directory' in args:
+            try:
+                os.chdir(args['directory'])
+            except Exception as ex:
+                print("Error changing directories: %s" % str(ex))
+                sys.exit(1)
         
         # If we know the path to the python interpreter...
         if sys.executable:
@@ -67,6 +77,7 @@ if __name__ == "__main__":
                 if assignmentIndex > 0:
                     key = arg[:assignmentIndex].strip() # e.g. VAR in VAR=33
                     val = arg[assignmentIndex+1:].strip() # e.g. 33 in VAR=33
+                    overrideMacros[key] = val
                     defaultMacros[key] = val
                 else:
                     targets.append(arg)
@@ -86,7 +97,7 @@ if __name__ == "__main__":
         if not 'print-expanded' in args:
             # Run for each target.
             for target in targets:
-                runMakefile(fileContents, target, defaultMacros)
+                runMakefile(fileContents, target, defaultMacros, overrideMacros)
         else:
             contents, macros = expandMacros(fileContents, defaultMacros)
             print(contents)

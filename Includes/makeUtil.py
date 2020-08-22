@@ -3,7 +3,8 @@
 # Parses very simple Makefiles.
 # Useful Resources:
 #  - Chris Wellons' "A Tutorial on Portable Makefiles". https://nullprogram.com/blog/2017/08/20/
-# 
+#  - GNUMake: https://www.gnu.org/software/make/manual/make.html
+#  - BSDMake: http://khmere.com/freebsd_book/html/ch01.html
 
 import re, sys, os, subprocess, time
 from Includes.printUtil import *
@@ -400,12 +401,16 @@ def getDefaultMacros():
 # Run commands specified to generate
 # dependencies of target by the contents
 # of the makefile given in contents.
-def runMakefile(contents, target = '', defaultMacros={ "MAKE": "make" }):
+def runMakefile(contents, target = '', defaultMacros={ "MAKE": "make" }, overrideMacros={}):
     contents, macros = expandMacros(contents, defaultMacros)
     targetRecipes, targets = getTargetActions(contents)
 
     if target == '' and len(targets) > 0:
         target = targets[0]
+
+    # Fill override macros.
+    for macroName in overrideMacros:
+        macros[macroName] = overrideMacros[macroName]
 
     satisfied = satisfyDependencies(target, targetRecipes, macros)
 

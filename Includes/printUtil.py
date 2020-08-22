@@ -11,7 +11,7 @@ FORMAT_COLORS = \
 }
 
 FORMAT_RESET = "\033[0m"
-FORMAT_OUTPUT = True
+FORMAT_OUTPUT = sys.stdout.isatty() # Only format if outputting to a terminal.
 
 def cprint(text, color, file=sys.stdout):
     if color in FORMAT_COLORS and FORMAT_OUTPUT:

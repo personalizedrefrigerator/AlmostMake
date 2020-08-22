@@ -26,10 +26,16 @@ def parseArgs(args,
                 result[lastArgText] = True
             lastArgText = chunk[2:]
         elif chunk.startswith("-"):
-           singleChars.extend(chunk[1:])
-           if lastArgText:
-               result[lastArgText] = True
-               lastArgText = None
+            singleChars.extend(chunk[1:])
+            
+            if lastArgText:
+                result[lastArgText] = True
+                lastArgText = None
+            
+            # Permits single-characters mapping to multi-char
+            # flags **with values**.
+            if chunk[-1] in mappings and not (mappings[chunk[-1]] in result):    
+                lastArgText = mappings[chunk[-1]]
         elif lastArgText: # Assign to previous.
             result[lastArgText] = chunk
             lastArgText = None
