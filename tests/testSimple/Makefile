@@ -6,7 +6,7 @@ all:
 
 check: all
 	chmod u+x main
-	$(EXEC_PROGRAM)main | grep PASS
+	$(EXEC_PROGRAM) ./main | grep PASS
 
 
 all: main
