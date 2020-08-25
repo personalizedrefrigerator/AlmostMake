@@ -115,6 +115,17 @@ def cluster(splitText, level=0):
         result.extend(cluster(buff, level + 1))
     return result
 
+def rawRun(args, flags):
+    stderrOut = None # Default
+    if "2>&1" in flags:
+        out = subprocess.STDOUT
+
+    if "&" in flags:
+        print("& flag not implemented!")
+
+    proc = subprocess.run(args, stderr=stderrOut)
+    return proc
+
 def evalCommand(orderedCommand, flags=[]):
     if len(orderedCommand) == 0:
         return False
@@ -125,9 +136,44 @@ def evalCommand(orderedCommand, flags=[]):
     elif len(orderedCommand) == 3:
         operator = orderedCommand[1]
 
-        if operator == '||':
-            leftResult = 0 # To-do!!!
-    else
+        if operator == '|':
+            # Cache file descriptors that point to stdin and stdout
+            stdinSave = os.dup(0)
+            stdoutSave = os.dup(1)
+
+            fdIn, fdOut = os.pipe()
+            
+            # Point stdout to fdIn.
+            os.dup2(fdIn, 0)
+            os.close(fdIn)
+
+            left = evalCommand(orderedCommand[0], flags)
+
+            # Point stdout to stdoutSave.
+            op.dup2(stdoutSave, 0)
+            os.close(stdoutSave)
+
+            # Make stdin point to stdout.
+            os.dup2(fdOut, 1)
+            os.close(fdOut)
+
+            # Run right with given stdin, stdout.
+            right = evalCommand(orderedCommand[2], flags)
+            
+            # Restore stdin
+            os.dup2(stdinSave, 0)
+            os.close(stdinSave)
+
+            return right
+        elif operator == '||' or operator == '&&':
+            left = evalCommand(orderedCommand[0], flags)
+
+            if left and (operator == '||' and left.returncode != 0 or operator == '&&' and left.returncode == 0):
+                right = evalCommand(orderedCommand[1], flags)
+
+                return right
+            return left
+    else:
         raise SyntaxError("Too many parts to expression, %s" % str(orderedCommand))
 
 
