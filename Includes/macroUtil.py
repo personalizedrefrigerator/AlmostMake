@@ -1,0 +1,253 @@
+#!python
+
+# Macro parsing utilities.
+
+import re
+from Includes.printUtil import *
+
+# Regular expressions:
+MACRO_NAME_EXP = "[a-zA-Z0-9_\\@\\^\\<]"
+MACRO_NAME_CHAR_REGEXP = re.compile(MACRO_NAME_EXP)
+MACRO_SET_REGEXP = re.compile("\\s*([:+?]?)\\=\\s*")
+IS_MACRO_DEF_REGEXP = re.compile("^%s+\\s*[:+?]?\\=.*" % MACRO_NAME_EXP, re.IGNORECASE)
+IS_MACRO_INVOKE_REGEXP = re.compile(".*(?:^|[^\\$])[\\(]?%s+[\\)]?" % MACRO_NAME_EXP)
+SPACE_CHARS = re.compile("\\s")
+
+# Constant(s)
+COMMENT_CHAR = '#'
+
+# Options
+STOP_ON_ERROR = True
+SILENT = False
+
+# Filter function lists.
+# These are only used by expandAndDefineMacros
+# A line must satisfy all of these conditions to
+# define a macro.
+DEF_CONDITIONS = \
+[
+    lambda text: IS_MACRO_DEF_REGEXP.match(text) != None
+]
+
+LAZY_EVAL_CONDITIONS = \
+[
+    
+]
+
+# Commands executable as $(COMMAND_NAME Args).
+MACRO_COMMANDS = {}
+
+def reportError(message):
+    if not SILENT or STOP_ON_ERROR:
+        cprint(str(message) + "\n", "RED", file=sys.stderr)
+    
+    if STOP_ON_ERROR:
+        print ("Stopping.")
+        sys.exit(1)
+
+# Option-setting functions
+def setStopOnError(stopOnErr):
+    global STOP_ON_ERROR
+    STOP_ON_ERROR = stopOnErr
+
+def setSilent(silent):
+    global SILENT
+    SILENT = silent
+
+def setMacroCommands(commands):
+    global MACRO_COMMANDS
+    MACRO_COMMANDS = commands
+
+# Note that for a line to define a macro,
+# it must satisfy the given conditions.
+def addMacroDefCondition(condition):
+    DEF_CONDITIONS.append(condition)
+
+# Skip expanding macros on a line if condition holds. Only applies to expandAndDefineMacros.
+def addLazyEvalCondition(condition):
+    LAZY_EVAL_CONDITIONS.append(condition)
+
+# Get if [text] defines a macro.
+def isMacroDef(text):
+    for condition in DEF_CONDITIONS:
+        if not condition(text):
+            return False
+    return True
+
+# Get if [text] syntatically invokes a macro.
+def isMacroInvoke(text):
+    return IS_MACRO_INVOKE_REGEXP.match(text) != None
+
+# Get whether expandAndDefineMacros should
+# evaluate the contents of a line, or allow it to
+# be done later.
+def shouldLazyEval(text):
+    for condition in LAZY_EVAL_CONDITIONS:
+        if not condition(text):
+            return False
+    return True
+
+# Split content by lines, but
+# paying attention to escaped newline
+# characters.
+def getLines(content):
+    result = []
+    escapeCharLast = False
+    buff = ''
+
+    for c in content:
+        if c == '\\' and not escapeCharLast:
+            escapeCharLast = True
+        elif escapeCharLast and c != '\n':
+            buff += '\\' + c
+            escapeCharLast = False
+        elif escapeCharLast and c == '\n':
+            buff += ' '
+            escapeCharLast = False
+        elif c == '\n':
+            result.append(buff)
+            buff = ''
+        else:
+            escapeCharLast = False
+            buff += c
+    result.append(buff)
+    return result
+
+# Remove comments from line as defined
+# by COMMENT_CHAR
+def stripComments(line):
+    singleLevel = { '"': False, "\'": False }
+    inSomeSingleLevel = False
+    multiLevelOpen = { '(': 0 }
+    multiLevelClose = { ')': '(' }
+    escaped = False
+    trimToIndex = 0
+
+    for c in line:
+        if c in singleLevel and not escaped:
+            if not inSomeSingleLevel:
+                inSomeSingleLevel = True
+                singleLevel[c] = True
+            elif singleLevel[c]:
+                inSomeSingleLevel = False
+                singleLevel[c] = False
+        elif c == '\\' and not escaped:
+            escaped = True
+        elif c == '\\' and escaped:
+            escaped = False
+        elif c in multiLevelOpen and not escaped and not inSomeSingleLevel:
+            multiLevelOpen[c] += 1
+        elif c in multiLevelClose and not escaped and not inSomeSingleLevel:
+            bracketPairChar = multiLevelClose[c]
+            if multiLevelOpen[bracketPairChar] == 0:
+                reportError("Parentheses mismatch on line with content: %s" % line)
+            else:
+                multiLevelOpen[bracketPairChar] -= 1
+        elif c == COMMENT_CHAR and not escaped and not inSomeSingleLevel:
+            break
+        else:
+            escaped = False
+        trimToIndex = trimToIndex + 1
+    return line[:trimToIndex]
+
+# Expand usages of [macros] in [line].
+def expandMacroUsages(line, macros):
+    expanded = ''
+    buff = ''
+    afterBuff = ''
+    prev = ''
+    parenLevel = 0
+    inMacro = False
+    buffFromMacro = False
+
+    line += ' ' # Force any macros at the
+                # end of the line to expand.
+
+    for c in line:
+        if c == '$' and not inMacro and parenLevel == 0:
+            expanded += buff
+            buff = ''
+            inMacro = True
+        elif c == '$' and parenLevel == 0 and inMacro and buff == '$':
+            inMacro = False
+            expanded += '$'
+        elif c == '(' and inMacro:
+            parenLevel += 1
+        elif c == ')' and inMacro:
+            parenLevel -= 1
+
+            if parenLevel == 0:
+                inMacro = False
+                buffFromMacro = True
+        elif inMacro and parenLevel == 0 and not MACRO_NAME_CHAR_REGEXP.match(c):
+            inMacro = False
+            buffFromMacro = True
+            afterBuff += c
+        else:
+            buff += c
+
+        if buffFromMacro:
+            buffFromMacro = False
+            buff = buff.strip()
+            words = buff.split(" ")
+            if buff in macros:
+                buff = macros[buff]
+            elif words[0] in MACRO_COMMANDS:
+                buff = MACRO_COMMANDS[words[0]](" ".join(words[1:]), macros)
+            else:
+                reportError("Undefined macro %s" % buff)
+            expanded += buff + afterBuff
+#            print("Expanded to %s." % (buff + afterBuff))
+            buff = ''
+            afterBuff = ''
+        prev = c
+    
+    if parenLevel > 0:
+        reportError("Unclosed parenthesis: %s" % line)
+
+    # Append buff, but ignore trailing space.
+    expanded += buff[:len(buff) - 1] + afterBuff
+    return expanded
+
+# Expand and handle macro definitions 
+# in [contents].
+def expandAndDefineMacros(contents, macros = {}):
+    lines = getLines(contents)
+    result = ''
+
+    for line in lines:
+        line = stripComments(line)
+        if isMacroDef(line):
+            parts = MACRO_SET_REGEXP.split(line)
+            name = parts[0]
+            definedTo = line[len(name):]
+            definedTo = MACRO_SET_REGEXP.sub("", definedTo, count=1) # Remove the first set character.
+            defineType = MACRO_SET_REGEXP.search(line).group(1) # E.g. :,+,? so we can do += or ?=
+            name = name.strip()
+            
+            doNotDefine = False
+            concatWith = ''
+            deferExpand = False
+            
+            # ?=, so only define if undefined.
+            if defineType == '?' and name in macros:
+                doNotDefine = True
+            elif defineType == '+' and name in macros:
+                concatWith = macros[name]
+            elif defineType == '':
+                deferExpand = True
+            
+            if not doNotDefine:
+                if not deferExpand:
+                    macros[name] = concatWith + expandMacroUsages(definedTo, macros).rstrip()
+                else:
+#                    print("Expansion defered: %s = %s" % (name, definedTo))
+                    macros[name] = concatWith + definedTo.rstrip()
+#            print("%s defined to %s" % (name, macros[name]))
+        elif isMacroInvoke(line) and not shouldLazyEval(line):
+            result += expandMacroUsages(line, macros)
+        else:
+            result += line
+        result += '\n'
+
+    return (result, macros)
