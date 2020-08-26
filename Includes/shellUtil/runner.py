@@ -116,27 +116,44 @@ def cluster(splitText, level=0):
         result.extend(cluster(buff, level + 1))
     return result
 
-def rawRun(args, flags=[]):
+# Returns the exit status of the command specified by args
+# (e.g. [ 'ls', '-la' ]). If the command is in [customCommands],
+# however, run the custom command, rather than the system command.
+def rawRun(args, customCommands={}, flags=[]):
     stderrOut = None # Default
     if "2>&1" in flags:
         out = subprocess.STDOUT
 
     if "&" in flags:
         print("& flag not implemented!")
+        
+    if len(args) == 0:
+        return 0
+        
+    command = args[0].strip()
 
-    proc = subprocess.run(args, stderr=stderrOut)
-    return proc
+    if command in customCommands:
+        result = customCommands[command](args, flags)
+        
+        if type(result) == bool:
+            if result:
+                return 0
+            return 1
+        return result
+    
+    proc = subprocess.run(args, stderr=stderrOut)   
+    return proc.returncode
 
-def evalCommand(orderedCommand, flags=[]):
+def evalCommand(orderedCommand, customCommands={}, flags=[]):
     if len(orderedCommand) == 0:
         return False
     if type(orderedCommand[0]) == str:
-        return rawRun(orderedCommand, flags)
+        return rawRun(orderedCommand, customCommands, flags)
     elif len(orderedCommand) == 2:
         recurseFlags = flags.copy()
         flags.append(orderedCommand)
 
-        return evalCommand(orderedCommand[0], recurseFlags)
+        return evalCommand(orderedCommand[0], customCommands, recurseFlags)
     elif len(orderedCommand) == 3:
         operator = orderedCommand[1]
 
@@ -151,7 +168,7 @@ def evalCommand(orderedCommand, flags=[]):
             os.dup2(fdOut, 1)
             os.close(fdOut)
 
-            left = evalCommand(orderedCommand[0], flags)
+            left = evalCommand(orderedCommand[0], customCommands, flags)
 
             # Point stdout to stdoutSave.
             os.dup2(stdoutSave, 1)
@@ -162,7 +179,7 @@ def evalCommand(orderedCommand, flags=[]):
             os.close(fdIn)
 
             # Run right with given stdin, stdout.
-            right = evalCommand(orderedCommand[2], flags)
+            right = evalCommand(orderedCommand[2], customCommands, flags)
             
             # Restore stdin
             os.dup2(stdinSave, 0)
@@ -181,7 +198,7 @@ def evalCommand(orderedCommand, flags=[]):
             if '&' in flags:
                 flags = [ i for i in flags if i != '&' ]
 
-            left = evalCommand(orderedCommand[0], flags)
+            left = evalCommand(orderedCommand[0], customCommands, flags)
 
             # Point stdout back to our saved file descriptor.
             os.dup2(stdoutSave, 1)
@@ -189,18 +206,18 @@ def evalCommand(orderedCommand, flags=[]):
 
             return left
         elif operator == '||' or operator == '&&':
-            left = evalCommand(orderedCommand[0], flags)
+            left = evalCommand(orderedCommand[0], customCommands, flags)
 
-            if left and (operator == '||' and left.returncode != 0 or operator == '&&' and left.returncode == 0):
-                right = evalCommand(orderedCommand[2], flags)
+            if left and (operator == '||' and left != 0 or operator == '&&' and left == 0):
+                right = evalCommand(orderedCommand[2], customCommands, flags)
 
                 return right
             return left
         elif operator == ';':
-            left = evalCommand(orderedCommand[0], flags)
-            right = evalCommand(orderedCommand[2], flags)
+            left = evalCommand(orderedCommand[0], customCommands, flags)
+            right = evalCommand(orderedCommand[2], customCommands, flags)
 
-            if left.returncode != 0:
+            if left != 0:
                 return left
             return right
         else:
@@ -208,6 +225,9 @@ def evalCommand(orderedCommand, flags=[]):
     else:
         raise SyntaxError("Too many parts to expression, %s" % str(orderedCommand))
 
+# Run a filter on shlex's split output list.
+# E.g. Map [ ... '2', '>&', '1', ...] to
+# [... '2>&1' ...].
 def filterSplitList(splitString):
     result = []
     buff = []
@@ -226,13 +246,16 @@ def filterSplitList(splitString):
 
     return result
 
-def runCommand(commandString):
+# Run the POSIX-like shell command [commandString]. Define
+# any additional commands through [customCommands].
+def runCommand(commandString, customCommands = {}):
     # Note: punctuation_chars=True causes shlex to cluster ();&| runs.
     #       For example, a && b -> ['a', '&&', 'b'], instead of ['a', '&', '&', 'b'].
     portions = filterSplitList(list(shlex.shlex(commandString, posix=True, punctuation_chars=True)))
     ordered = cluster(portions) # Convert ['a', '&&', 'b', '||', 'c'] into
                                 #       [[['a'], '&&', ['b']], '||', ['c']]
-    evalCommand(ordered)
+    evalCommand(ordered, customCommands)
+
 if __name__ == "__main__":
     # Run directly? Run tests!
     print("Testing runner.py...")

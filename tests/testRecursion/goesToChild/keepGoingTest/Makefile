@@ -5,4 +5,6 @@
 # make processes.
 
 check: IShouldBreak
+    ls | grep IShouldBreak
+    exit 123
 .PHONY: IShouldBreak

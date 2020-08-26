@@ -220,16 +220,6 @@ def satisfyDependencies(target, targets, macros):
         except Exception as e:
             if haltOnFail: # e.g. -rm foo should be silent even if it cannot remove foo.
                 reportError("Unable to run command:\n    ``%s``. \n\n  Message:\n%s" % (command, str(e)))
-    return True
-
-# Get a list of suggested default macros from the environment
-def getDefaultMacros():
-    result = { }
-    
-    for name in os.environ:
-        result[name] = os.environ[name]
-    
-    return result
 
 # Run commands specified to generate
 # dependencies of target by the contents

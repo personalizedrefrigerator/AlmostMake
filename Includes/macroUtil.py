@@ -2,7 +2,7 @@
 
 # Macro parsing utilities.
 
-import re
+import re, os
 from Includes.printUtil import *
 
 # Regular expressions:
@@ -10,7 +10,7 @@ MACRO_NAME_EXP = "[a-zA-Z0-9_\\@\\^\\<]"
 MACRO_NAME_CHAR_REGEXP = re.compile(MACRO_NAME_EXP)
 MACRO_SET_REGEXP = re.compile("\\s*([:+?]?)\\=\\s*")
 IS_MACRO_DEF_REGEXP = re.compile("^%s+\\s*[:+?]?\\=.*" % MACRO_NAME_EXP, re.IGNORECASE)
-IS_MACRO_INVOKE_REGEXP = re.compile(".*(?:^|[^\\$])[\\(]?%s+[\\)]?" % MACRO_NAME_EXP)
+IS_MACRO_INVOKE_REGEXP = re.compile(".*(?:[\\$])[\\(]?%s+[\\)]?" % MACRO_NAME_EXP)
 SPACE_CHARS = re.compile("\\s")
 
 # Constant(s)
@@ -26,7 +26,7 @@ SILENT = False
 # define a macro.
 DEF_CONDITIONS = \
 [
-    lambda text: IS_MACRO_DEF_REGEXP.match(text) != None
+    
 ]
 
 LAZY_EVAL_CONDITIONS = \
@@ -68,8 +68,13 @@ def addLazyEvalCondition(condition):
     LAZY_EVAL_CONDITIONS.append(condition)
 
 # Get if [text] defines a macro.
-def isMacroDef(text):
-    for condition in DEF_CONDITIONS:
+def isMacroDef(text, defConditions=DEF_CONDITIONS):
+    if not defConditions:
+        defConditions = DEF_CONDITIONS
+    
+    if IS_MACRO_DEF_REGEXP.match(text) == None:
+        return False
+    for condition in defConditions:
         if not condition(text):
             return False
     return True
@@ -80,12 +85,26 @@ def isMacroInvoke(text):
 
 # Get whether expandAndDefineMacros should
 # evaluate the contents of a line, or allow it to
-# be done later.
-def shouldLazyEval(text):
-    for condition in LAZY_EVAL_CONDITIONS:
-        if not condition(text):
-            return False
-    return True
+# be done later. [checkConditions] allows case-by-case
+# overriding of the default conditions.
+def shouldLazyEval(text, checkConditions=LAZY_EVAL_CONDITIONS):
+    if checkConditions == None:
+        checkConditions = LAZY_EVAL_CONDITIONS
+    
+    for condition in checkConditions:
+        if condition(text):
+            return True
+    return False
+
+
+# Get a list of suggested default macros from the environment
+def getDefaultMacros():
+    result = { }
+    
+    for name in os.environ:
+        result[name] = os.environ[name]
+    
+    return result
 
 # Split content by lines, but
 # paying attention to escaped newline
@@ -211,13 +230,14 @@ def expandMacroUsages(line, macros):
 
 # Expand and handle macro definitions 
 # in [contents].
-def expandAndDefineMacros(contents, macros = {}):
+def expandAndDefineMacros(contents, macros = {}, 
+            macroDefConditions=None, lazyEvalConditions=None):
     lines = getLines(contents)
     result = ''
 
     for line in lines:
         line = stripComments(line)
-        if isMacroDef(line):
+        if isMacroDef(line, macroDefConditions):
             parts = MACRO_SET_REGEXP.split(line)
             name = parts[0]
             definedTo = line[len(name):]
@@ -244,7 +264,7 @@ def expandAndDefineMacros(contents, macros = {}):
 #                    print("Expansion defered: %s = %s" % (name, definedTo))
                     macros[name] = concatWith + definedTo.rstrip()
 #            print("%s defined to %s" % (name, macros[name]))
-        elif isMacroInvoke(line) and not shouldLazyEval(line):
+        elif isMacroInvoke(line) and not shouldLazyEval(line, lazyEvalConditions):
             result += expandMacroUsages(line, macros)
         else:
             result += line
