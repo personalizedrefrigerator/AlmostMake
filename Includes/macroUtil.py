@@ -79,6 +79,11 @@ def isMacroDef(text, defConditions=DEF_CONDITIONS):
             return False
     return True
 
+def isMacroExport(text, defConditions=DEF_CONDITIONS):
+    if not text.startswith("export "):
+        return False
+    return isMacroDef(text[len("export "):].strip(), defConditions)
+
 # Get if [text] syntatically invokes a macro.
 def isMacroInvoke(text):
     return IS_MACRO_INVOKE_REGEXP.match(text) != None
@@ -207,7 +212,7 @@ def expandMacroUsages(line, macros):
 
         if buffFromMacro:
             buffFromMacro = False
-            buff = buff.strip()
+            buff = buff.lstrip()
             words = buff.split(" ")
             if buff in macros:
                 buff = macros[buff]
@@ -237,7 +242,12 @@ def expandAndDefineMacros(contents, macros = {},
 
     for line in lines:
         line = stripComments(line)
-        if isMacroDef(line, macroDefConditions):
+        exporting = isMacroExport(line, macroDefConditions)
+        
+        if isMacroDef(line, macroDefConditions) or exporting:
+            if exporting:
+                line = line[len("export "):]
+            
             parts = MACRO_SET_REGEXP.split(line)
             name = parts[0]
             definedTo = line[len(name):]
@@ -259,10 +269,13 @@ def expandAndDefineMacros(contents, macros = {},
             
             if not doNotDefine:
                 if not deferExpand:
-                    macros[name] = concatWith + expandMacroUsages(definedTo, macros).rstrip()
+                    macros[name] = concatWith + expandMacroUsages(definedTo, macros).rstrip('\n')
                 else:
 #                    print("Expansion defered: %s = %s" % (name, definedTo))
-                    macros[name] = concatWith + definedTo.rstrip()
+                    macros[name] = concatWith + definedTo.rstrip('\n')
+                
+                if exporting:
+                    os.environ[name] = macros[name]
 #            print("%s defined to %s" % (name, macros[name]))
         elif isMacroInvoke(line) and not shouldLazyEval(line, lazyEvalConditions):
             result += expandMacroUsages(line, macros)

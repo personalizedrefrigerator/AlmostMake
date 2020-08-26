@@ -17,7 +17,12 @@ Change the current working directory to [directory].
 This command is provided by %s.""" % SHELL_NAME,
     "exit": """exit [status]
 Exit the current script/shell with status [status].
-If [status] is not provided, exit with code zero."""
+If [status] is not provided, exit with code zero.""",
+    "ls": """ls [directory]
+Print the contents of [directory] or the current working
+directory.""",
+    "pwd": """pwd
+Print the current working directory's absolute path."""
 }
 
 def filterArgs(args, minimumLength):
@@ -28,23 +33,50 @@ def filterArgs(args, minimumLength):
 
 CUSTOM_COMMANDS = \
 {
-    "cd": lambda args: filterArgs(args, 2) and os.chdir(args[1]),
-    "exit": lambda args: filterArgs(args, 1) and sys.exit((len(args) > 1 and args[1]) or 0)
+    "cd": lambda args, flags: filterArgs(args, 2) and os.chdir(args[1]),
+    "exit": lambda args, flags: filterArgs(args, 1) and sys.exit((len(args) > 1 and args[1]) or 0)
 }
+
+def customLs(args):
+    listInDirectory = os.path.abspath(".")
+    
+    if len(args) > 1:
+        listInDirectory = os.path.abspath(args[1])
+    fileList = os.listdir(listInDirectory)
+    fileList.sort()
+    
+    print(" ".join(fileList))
+
+def customPwd(args):
+    print(os.path.abspath("."))
+
+# Get a set of custom commands that can be used.
+def getCustomCommands(macros):
+    result = {}
+    
+    for key in CUSTOM_COMMANDS:
+        result[key] = CUSTOM_COMMANDS[key]
+    
+    if "CUSTOM_LS_PWD" in macros:
+        result["ls"] = lambda args, flags: filterArgs(args, 1) and customLs(args)
+        result["pwd"] = lambda args, flags: filterArgs(args, 1) and customPwd(args)
+    
+    return result
 
 def evalScript(text, macros={}):
     text, macros = macroUtil.expandAndDefineMacros(text, macros, {}, {})
-    return (runner.runCommand(text, CUSTOM_COMMANDS), macros)
+    return (runner.runCommand(text, getCustomCommands(macros)), macros)
 
 # If run directly, open a small test-shell.
 if __name__ == "__main__":
     ps1 = "$ "
-    if "PS1" in os.environ:
-        ps1 = os.environ["PS1"]
-    
     macros = macroUtil.getDefaultMacros()
 
     while True:
+        if "PS1" in os.environ:
+            ps1 = os.environ["PS1"]
+        
         command = input(ps1)
         
         result, macros = evalScript(command, macros)
+
