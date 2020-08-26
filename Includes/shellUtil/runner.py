@@ -3,8 +3,9 @@
 import shlex, os, re
 import subprocess
 
-PRECEDENCE_LIST = [ '||', '&&', ";", '|', '2>&1', '&' ]
-TWO_ARGUMENTS = { "||", "&&", ";", '|' }
+PRECEDENCE_LIST = [ '||', '&&', ";", '|', '>', '2>&1', '&' ]
+TWO_ARGUMENTS = { "||", "&&", ";", '|', '>' }
+PIPE_OUT_PERMISSIONS = 0o660
 
 # Get the number of [char] at the beginning of [text].
 def getStartingCount(text, char):
@@ -115,7 +116,7 @@ def cluster(splitText, level=0):
         result.extend(cluster(buff, level + 1))
     return result
 
-def rawRun(args, flags):
+def rawRun(args, flags=[]):
     stderrOut = None # Default
     if "2>&1" in flags:
         out = subprocess.STDOUT
@@ -132,7 +133,10 @@ def evalCommand(orderedCommand, flags=[]):
     if type(orderedCommand[0]) == str:
         return rawRun(orderedCommand, flags)
     elif len(orderedCommand) == 2:
-        return evalCommand(orderedCommand[0], flags.copy().append(orderedCommand[1]))
+        recurseFlags = flags.copy()
+        flags.append(orderedCommand)
+
+        return evalCommand(orderedCommand[0], recurseFlags)
     elif len(orderedCommand) == 3:
         operator = orderedCommand[1]
 
@@ -144,18 +148,18 @@ def evalCommand(orderedCommand, flags=[]):
             fdIn, fdOut = os.pipe()
             
             # Point stdout to fdIn.
-            os.dup2(fdIn, 0)
-            os.close(fdIn)
+            os.dup2(fdOut, 1)
+            os.close(fdOut)
 
             left = evalCommand(orderedCommand[0], flags)
 
             # Point stdout to stdoutSave.
-            op.dup2(stdoutSave, 0)
+            os.dup2(stdoutSave, 1)
             os.close(stdoutSave)
 
-            # Make stdin point to stdout.
-            os.dup2(fdOut, 1)
-            os.close(fdOut)
+            # Make stdin point to fdOut.
+            os.dup2(fdIn, 0)
+            os.close(fdIn)
 
             # Run right with given stdin, stdout.
             right = evalCommand(orderedCommand[2], flags)
@@ -165,23 +169,67 @@ def evalCommand(orderedCommand, flags=[]):
             os.close(stdinSave)
 
             return right
+        elif operator == '>':
+            outfd = os.open(os.path.abspath(" ".join(orderedCommand[2])), os.O_WRONLY | os.O_CREAT, mode=PIPE_OUT_PERMISSIONS)
+            stdoutSave = os.dup(1)
+
+            # Point stdout to outfd.
+            os.dup2(outfd, 1)
+            os.close(outfd)
+
+            # We need to wait for the process to finish.
+            if '&' in flags:
+                flags = [ i for i in flags if i != '&' ]
+
+            left = evalCommand(orderedCommand[0], flags)
+
+            # Point stdout back to our saved file descriptor.
+            os.dup2(stdoutSave, 1)
+            os.close(stdoutSave)
+
+            return left
         elif operator == '||' or operator == '&&':
             left = evalCommand(orderedCommand[0], flags)
 
             if left and (operator == '||' and left.returncode != 0 or operator == '&&' and left.returncode == 0):
-                right = evalCommand(orderedCommand[1], flags)
+                right = evalCommand(orderedCommand[2], flags)
 
                 return right
             return left
+        elif operator == ';':
+            left = evalCommand(orderedCommand[0], flags)
+            right = evalCommand(orderedCommand[2], flags)
+
+            if left.returncode != 0:
+                return left
+            return right
+        else:
+            raise SyntaxError("Unknown separator, %s." % operator)
     else:
         raise SyntaxError("Too many parts to expression, %s" % str(orderedCommand))
 
+def filterSplitList(splitString):
+    result = []
+    buff = []
 
+    for part in splitString:
+        part = part.strip()
+        buff.append(part)
+
+        if part == '2':
+            result.extend(buff[:len(buff) - 1])
+            buff = [ '2' ]
+        elif buff == ['2', '>&', '1']:
+            result.append('2>&1')
+            buff = []
+    result.extend(buff)
+
+    return result
 
 def runCommand(commandString):
     # Note: punctuation_chars=True causes shlex to cluster ();&| runs.
     #       For example, a && b -> ['a', '&&', 'b'], instead of ['a', '&', '&', 'b'].
-    portions = list(shlex.shlex(commandString, posix=True, punctuation_chars=True))
+    portions = filterSplitList(list(shlex.shlex(commandString, posix=True, punctuation_chars=True)))
     ordered = cluster(portions) # Convert ['a', '&&', 'b', '||', 'c'] into
                                 #       [[['a'], '&&', ['b']], '||', ['c']]
     evalCommand(ordered)
