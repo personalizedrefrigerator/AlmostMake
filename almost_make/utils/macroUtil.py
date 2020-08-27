@@ -12,7 +12,6 @@ MACRO_NAME_CHAR_REGEXP = re.compile(MACRO_NAME_EXP)
 MACRO_SET_REGEXP = re.compile("\\s*([:+?]?)\\=\\s*")
 IS_MACRO_DEF_REGEXP = re.compile("^%s+\\s*[:+?]?\\=.*" % MACRO_NAME_EXP, re.IGNORECASE)
 IS_MACRO_INVOKE_REGEXP = re.compile(".*(?:[\\$])[\\(]?%s+[\\)]?" % MACRO_NAME_EXP)
-SPACE_CHARS = re.compile("\\s")
 
 # Constant(s)
 COMMENT_CHAR = '#'

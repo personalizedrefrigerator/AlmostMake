@@ -50,7 +50,12 @@ As `AlmostMake` is hosted on GitHub, it can be installed by cloning:
 ```sh
 $ git clone https://github.com/personalizedrefrigerator/AlmostMake.git
 $ cd AlmostMake
-$ make play
+$ make install
+```
+
+You may also need to install `setuptools`, `wheel`, and `twine`. [See Packaging Python Projects](https://packaging.python.org/tutorials/packaging-projects/) for a brief overview of these packages. They can be installed as follows:
+```sh
+$ python3 -m pip install --user --upgrade setuptools wheel twine
 ```
 
 ## Testing
@@ -60,6 +65,8 @@ To test AlmostMake, run,
 $ make test
 ```
 
+Note, however, that `make test` depends on `make install`!
+
 At present, it has only been tested on Debian and Ubuntu with Python 3.7 and 3.8. It may work with other operating systems and Python versions, but this is not guaranteed.
 
-If you find that AlmostMake works on a platform not listed here, post an issue or comment on this project's GitHub repository! Pull requests and community feedback are welcome!
+If you find that AlmostMake works on a platform not listed here, post an issue or comment on this project's GitHub repository! Pull requests and feedback are welcome!

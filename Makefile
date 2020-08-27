@@ -2,11 +2,11 @@
 
 all: 
 	@echo "Help:"
-	@echo -n "    \033[32mplay:\033[0m"
+	@echo -n "    \033[32minstall:\033[0m"
 	@echo " This one is important! It installs the current version of almost_make to permit testing. Don't use this unless you want to install a version of almake!"
-	@echo "    test: Depends on play. Runs tests using almost_make installation."
-	@echo "    shell: Depends on play. Open an interface to the built-in shell."
-	@echo "    clean: Clean up after play, build."
+	@echo "    test: Depends on install. Runs tests using almost_make installation."
+	@echo "    shell: Depends on install. Open an interface to the built-in shell."
+	@echo "    clean: Clean up after install, build."
 	@echo "    build: Generate distribution archives. See https://packaging.python.org/tutorials/packaging-projects/"
 	@echo "    publish: Push to pypi. If the version-numbers in setup.py are out-of-date, this may fail. Note: Also update the version information in cli.py! This should be automated, but, for now, isn't!"
 	@echo "    publish-test: Push to testpypi! Like publish, but for testing!"
@@ -14,13 +14,13 @@ all:
 # Install! We can test the command through 'almake'!
 # Danger! This installs almake! Do not run this if you don't want to install
 # it!
-play: clean build
+install: clean build
 	python3 -m pip install --force-reinstall .
 	#bash -c "cd testEnv; source bin/activate; python3 -m pip install ../"
 
 # Test the embedded shell!
-shell: play
-	python3 almost_make/utils/shellUtil/shellUtil.py
+shell: install
+	python3 almost_make/utils/shellUtil/interactiveShell.py
 
 # Prepare AlmostMake for submission to PyPi!
 # See https://packaging.python.org/tutorials/packaging-projects/
@@ -41,7 +41,7 @@ clean:
 	-rm -rf testEnv
 	-rm -rf almost_make.egg-info
 
-test: play
+test: install
 	cd almost_make/tests; python3 ../cli.py
 	cd almost_make/utils/shellUtil; python3 runner.py
 

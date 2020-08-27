@@ -10,6 +10,7 @@ import re, sys, os, subprocess, time
 from almost_make.utils.printUtil import *
 import almost_make.utils.macroUtil as macroUtil
 import almost_make.utils.shellUtil.shellUtil as shellUtil
+import almost_make.utils.shellUtil.runner as runner
 import almost_make.utils.errorUtil as errorUtil
 
 # Regular expressions
@@ -237,7 +238,12 @@ def satisfyDependencies(target, targets, macros):
             if not "_BUILTIN_SHELL" in macros:
             	status = subprocess.run(command, shell=True, check=True).returncode
             else:
-            	status,_ = shellUtil.evalScript(command, macros)
+            	defaultFlags = []
+            	
+            	if "_SYSTEM_SHELL_PIPES" in macros:
+            	    defaultFlags.append(runner.USE_SYSTEM_PIPE)
+            	
+            	status,_ = shellUtil.evalScript(command, macros, defaultFlags = defaultFlags)
             
             if status != 0 and haltOnFail:
             	errorUtil.reportError("Command %s exited with non-zero exit status, %s." % (command, str(status)))

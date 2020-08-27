@@ -34,7 +34,7 @@ def filterArgs(args, minimumLength):
 
 CUSTOM_COMMANDS = \
 {
-    "cd": lambda args, flags: filterArgs(args, 2) and os.chdir(args[1]),
+    "cd": lambda args, flags: filterArgs(args, 2) and os.chdir(os.path.abspath(args[1])),
     "exit": lambda args, flags: filterArgs(args, 1) and sys.exit((len(args) > 1 and args[1]) or 0)
 }
 
@@ -106,32 +106,16 @@ def getCustomCommands(macros):
     
     return result
 
-def evalScript(text, macros={}, resetCwd = True):
+def evalScript(text, macros={}, resetCwd = True, defaultFlags = []):
     oldCwd = os.path.abspath(os.getcwd())
+    
     text, macros = macroUtil.expandAndDefineMacros(text, macros, {}, {})
     
-    result = (runner.runCommand(text, getCustomCommands(macros)), macros)
+    result = (runner.runCommand(text, getCustomCommands(macros), defaultFlags), macros)
     
     if resetCwd:
         os.chdir(oldCwd)
     
     return result
 
-# If run directly, open a small test-shell.
-if __name__ == "__main__":
-    ps1 = "$ "
-    macros = macroUtil.getDefaultMacros()
-    macros["_CUSTOM_BASE_COMMANDS"] = True # Use custom base commands for testing.
-
-    while True:
-        if "PS1" in os.environ:
-            ps1 = os.environ["PS1"]
-        
-        customEcho(["echo", "-n", "-e", ps1])
-        command = input("")
-        
-        try:
-            result, macros = evalScript(command, macros, False)
-        except Exception as e:
-            print("Error running %s:\n%s" % (command, str(e)))
 

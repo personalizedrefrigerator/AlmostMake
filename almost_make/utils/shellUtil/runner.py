@@ -7,6 +7,11 @@ PRECEDENCE_LIST = [ '||', '&&', ";", '|', '>', '2>&1', '&' ]
 TWO_ARGUMENTS = { "||", "&&", ";", '|', '>' }
 PIPE_OUT_PERMISSIONS = 0o660
 
+SPACE_CHARS = re.compile("\\s")
+
+SYSTEM_SHELL = "system-shell"
+USE_SYSTEM_PIPE = "use-system-pipe"
+
 # Get the number of [char] at the beginning of [text].
 def getStartingCount(text, char):
     pos = 0
@@ -132,9 +137,31 @@ def cluster(splitText, level=0):
         result.extend(cluster(buff, level + 1))
     return result
 
+# Collapse a clustered command back into a string.
+def collapse(clustered):
+    result = ""
+    
+    if len(clustered) == 0:
+        return result
+    elif type(clustered[0]) == str:
+        for part in clustered:
+            if SPACE_CHARS.search(part.strip()) != None:
+                result += " " + shlex.quote(part)
+            else:
+                result += " " + part
+        return result.strip()
+    
+    result = " ".join([ collapse(elem) for elem in clustered ])
+    
+    return result.strip()
+
 # Returns the exit status of the command specified by args
 # (e.g. [ 'ls', '-la' ]). If the command is in [customCommands],
 # however, run the custom command, rather than the system command.
+# If 'system-shell' is in flags, run this portion of the command in the 
+# system's shell. This is useful in systems that support, say,
+# the '|' operator, but the file-descriptor piping method fails.
+# At the time of this writing, this was the case with iOS's a-Shell.
 def rawRun(args, customCommands={}, flags=[]):
     stderrOut = None # Default
     if "2>&1" in flags:
@@ -145,7 +172,9 @@ def rawRun(args, customCommands={}, flags=[]):
         
     if len(args) == 0:
         return 0
-        
+    
+    sysShell = SYSTEM_SHELL in flags or None
+    
     command = args[0].strip()
 
     if command in customCommands:
@@ -159,7 +188,7 @@ def rawRun(args, customCommands={}, flags=[]):
             return 0
         return result
     
-    proc = subprocess.run(args, stderr=stderrOut)   
+    proc = subprocess.run(args, stderr=stderrOut, shell=sysShell)
     return proc.returncode
 
 def evalCommand(orderedCommand, customCommands={}, flags=[]):
@@ -174,6 +203,14 @@ def evalCommand(orderedCommand, customCommands={}, flags=[]):
         return evalCommand(orderedCommand[0], customCommands, recurseFlags)
     elif len(orderedCommand) == 3:
         operator = orderedCommand[1]
+
+        # If we are to use the system's built-in pipe, we need to stop here.
+        # Collapse the input and run it.
+        if USE_SYSTEM_PIPE in flags and (operator == '|' or operator == '>'):
+            runFlags = flags.copy()
+            runFlags.append(SYSTEM_SHELL) # Use the system's shell to interpret.
+            
+            return rawRun(collapse(orderedCommand), customCommands, runFlags)
 
         if operator == '|':
             # Cache file descriptors that point to stdin and stdout
@@ -340,7 +377,7 @@ def filterSplitList(splitString):
 
 # Run the POSIX-like shell command [commandString]. Define
 # any additional commands through [customCommands].
-def runCommand(commandString, customCommands = {}):
+def runCommand(commandString, customCommands = {}, flags = []):
     # Note: punctuation_chars=True causes shlex to cluster ();&| runs.
     #       For example, a && b -> ['a', '&&', 'b'], instead of ['a', '&', '&', 'b'].
     #       It also, however, clusters runs we don't want, like a &&& b -> ['a', '&&&', 'b'].
@@ -349,14 +386,14 @@ def runCommand(commandString, customCommands = {}):
     portions = filterSplitList(shSplit(commandString))
     ordered = cluster(portions) # Convert ['a', '&&', 'b', '||', 'c'] into
                                 #       [[['a'], '&&', ['b']], '||', ['c']]
-    return evalCommand(ordered, customCommands)
+    return evalCommand(ordered, customCommands, flags)
 
 if __name__ == "__main__":
     # Run directly? Run tests!
     print("Testing runner.py...")
     
-    def assertEql(left, right, description):
-        if left != right:
+    def assertEql(left, right, description, alternates=None):
+        if left != right or alternates and left in alternates:
             raise Exception("%s != %s (%s)" % (left, right, description)) # We WANT to see this. Don't catch.
     
     assertEql("1", "1", "This should always pass. A test of assertEql.")
@@ -396,6 +433,9 @@ if __name__ == "__main__":
     assertEql(filterSplitList(shSplit("make CFLAGS=thing LDFLAGS= CC=cc GCC=g++ A= TEST=33")), 
         [ "make", "CFLAGS=thing", "LDFLAGS=", "CC=cc", "GCC=g++", "A=", "TEST=33" ],
         "Shlex replacement test 6!")
+    assertEql(collapse([ "1", '&&', '2']), '1 && 2', "Simple collapse test.")
+    assertEql(collapse([ "a b", '&&', 'c']), "'a b' && c", "Spaces and quoting.", { "\"a b\" && c" })
+    assertEql(collapse([ "a", "2>&1", '|', 'c' ]), "a 2>&1 | c", "Other separators.")
     assertEql(filterSplitList(shSplit('TEST_MACRO="Testing1234=:= := This **should ** work! "')),
         ['TEST_MACRO="Testing1234=:= := This **should ** work! "'], "Quoting that starts in the middle?")
     
