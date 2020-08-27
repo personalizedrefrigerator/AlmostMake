@@ -68,7 +68,7 @@ def printHelp():
           "macros CC and CFLAGS by default set to gcc and -O3, respectively.")
 
 def printVersion():
-    print("AlmostMake v0.0.6")
+    print("AlmostMake v0.0.7")
     print("    This software is licensed to you under the BSD-3-Clause License, as printed below:")
     print("""
 BSD 3-Clause License
