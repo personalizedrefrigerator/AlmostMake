@@ -13,7 +13,8 @@ ARGUMENT_MAPPINGS = \
 #   'n': 'just-print', # To-do
     'f': 'file',
     'C': 'directory',
-    's': 'silent'
+    's': 'silent',
+    'b': 'built-in-shell'
 }
 
 # Don't save these when we recurse...
@@ -43,11 +44,25 @@ def printHelp():
     print("\t Switch to directory, dir, before running make. ")
     cprint("    -s, --silent", FORMAT_COLORS['GREEN'])
     print(" In most cases, don't print output.")
+    cprint("    -b", FORMAT_COLORS['GREEN'])
+    print("\t\t Use the built-in shell for commands in the makefile. This can also be enabled as follows:")
+    cprint("   export ", FORMAT_COLORS['PURPLE'])
+    print("_BUILTIN_SHELL ", end='')
+    cprint(":= ", FORMAT_COLORS['YELLOW'])
+    print("1 \t\t", end='')
+    cprint("# Use the built-in shell instead of the system shell.", FORMAT_COLORS['GREEN'])
+    print()
+    cprint("   export", FORMAT_COLORS['PURPLE'])
+    print(" _CUSTOM_BASE_COMMANDS ", end='')
+    cprint(":= ", FORMAT_COLORS['YELLOW'])
+    print("1 \t", end='')
+    cprint("# Enable built-in overrides for several commands like ls, echo, and pwd.", FORMAT_COLORS['GREEN'])
     print()
     cprint("Note: ", FORMAT_COLORS['PURPLE'])
     print("Macro definitions that override those from the environment" +
 " can be provided in addition to targets and options. For example,")
     cprint("    make target1 target2 target3 CC=gcc CFLAGS=-O3", FORMAT_COLORS['YELLOW'])
+    print()
     print("should make target1, target2, and target3 with the " +
           "macros CC and CFLAGS by default set to gcc and -O3, respectively.")
 
@@ -102,7 +117,12 @@ if __name__ == "__main__":
                     defaultMacros[key] = val
                 else:
                     targets.append(arg)
-
+	
+	    # Were we told to use the built-in shell?
+        if 'built-in-shell' in args:
+            overrideMacros["_BUILTIN_SHELL"] = "1"
+            overrideMacros["_CUSTOM_BASE_COMMANDS"] = "1"
+	
         if len(targets) == 0: # Select the default target, if no targets
             targets = ['']
         
