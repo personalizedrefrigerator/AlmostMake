@@ -167,10 +167,10 @@ def satisfyDependencies(target, targets, macros):
 
     if not target in targets:
         if selfExists:
-            return True
+            return False
         else:
             errorUtil.reportError("No rule to make %s." % target)
-            return # If still running, the user wants us to exit successfully.
+            return True # If still running, the user wants us to exit successfully.
     runRecipe = False
     deps, commands = targets[target]
     
@@ -263,4 +263,4 @@ def runMakefile(contents, target = '', defaultMacros={ "MAKE": "make" }, overrid
     satisfied = satisfyDependencies(target, targetRecipes, macros)
 
     if not satisfied and not SILENT:
-        print("Nothing to be done for target ``%s``." % target)
+        print("Not hing to be done for target ``%s``." % target)

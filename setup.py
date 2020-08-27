@@ -6,7 +6,7 @@ readmeFile.close()
 
 setuptools.setup(
     name="almost_make-personalizedrefrigerator",
-    version="0.0.4",
+    version="0.0.5",
     author="Henry Heino",
     author_email="personalizedrefrigerator@gmail.com",
     description="A makefile parser",
