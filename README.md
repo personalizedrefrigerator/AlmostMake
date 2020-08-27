@@ -41,7 +41,7 @@ $ python3 -m pip install almost-make-personalizedrefrigerator
 
 To update it,
 ```sh
-$ python3 -m pip install --upgrade
+$ python3 -m pip install --upgrade almost-make-personalizedrefrigerator
 ```
 
 ### From GitHub...
