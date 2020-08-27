@@ -206,7 +206,7 @@ def expandMacroUsages(line, macros):
             elif words[0] in MACRO_COMMANDS:
                 buff = MACRO_COMMANDS[words[0]](" ".join(words[1:]), macros)
             else:
-                errorUtil.reportError("Undefined macro %s. Context: %s.\n All Macros: %s" % (buff, line, str(macros)))
+                errorUtil.reportError("Undefined macro %s. Context: %s." % (buff, line))
             expanded += buff + afterBuff
 #            print("Expanded to %s." % (buff + afterBuff))
             buff = ''

@@ -100,14 +100,22 @@ def getCustomCommands(macros):
     
     if "_CUSTOM_BASE_COMMANDS" in macros:
         result["ls"] = lambda args, flags: filterArgs(args, 1) and customLs(args)
+        result["dir"] = result["ls"]
         result["pwd"] = lambda args, flags: filterArgs(args, 1) and customPwd(args)
         result["echo"] = lambda args, flags: filterArgs(args, 2) and customEcho(args)
     
     return result
 
-def evalScript(text, macros={}):
+def evalScript(text, macros={}, resetCwd = True):
+    oldCwd = os.path.abspath(os.getcwd())
     text, macros = macroUtil.expandAndDefineMacros(text, macros, {}, {})
-    return (runner.runCommand(text, getCustomCommands(macros)), macros)
+    
+    result = (runner.runCommand(text, getCustomCommands(macros)), macros)
+    
+    if resetCwd:
+        os.chdir(oldCwd)
+    
+    return result
 
 # If run directly, open a small test-shell.
 if __name__ == "__main__":
@@ -122,7 +130,7 @@ if __name__ == "__main__":
         command = input("")
         
         try:
-            result, macros = evalScript(command, macros)
+            result, macros = evalScript(command, macros, False)
         except Exception as e:
             print("Error running %s:\n%s" % (command, str(e)))
 

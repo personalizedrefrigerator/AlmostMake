@@ -155,6 +155,8 @@ def rawRun(args, customCommands={}, flags=[]):
             if result:
                 return 0
             return 1
+        if result is None:
+            return 0
         return result
     
     proc = subprocess.run(args, stderr=stderrOut)   

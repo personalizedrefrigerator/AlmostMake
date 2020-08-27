@@ -13,7 +13,7 @@ clean:
 
 doesNotPersist:
 	$(MAKE) --help | grep "Help:"
-	$(MAKE) -C subdir1 | grep "I am not printing help."
+	cd subdir1 && $(MAKE) subdir1 | grep "I am not printing help."
 
 goesToChild:
 	$(MAKE) -C goesToChild -ks
