@@ -67,8 +67,8 @@ def printHelp():
           "macros CC and CFLAGS by default set to gcc and -O3, respectively.")
 
 # On commandline run...
-if __name__ == "__main__":
-    args = parseArgs(sys.argv, ARGUMENT_MAPPINGS)
+def main(args):
+    args = parseArgs(args, ARGUMENT_MAPPINGS)
     
     # Fill args from MAKEFLAGS (see https://www.gnu.org/software/make/manual/make.html#How-the-MAKE-Variable-Works)
     args = fillArgsFromEnv(args, "MAKEFLAGS", ARGUMENT_MAPPINGS) # Previously-defined args take precedence.
@@ -142,3 +142,6 @@ if __name__ == "__main__":
         else:
             contents, macros = macroUtil.expandMacros(fileContents, defaultMacros)
             print(contents)
+
+if __name__ == "__main__":
+    main(sys.argv)

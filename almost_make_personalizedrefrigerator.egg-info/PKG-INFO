@@ -1,0 +1,27 @@
+Metadata-Version: 2.1
+Name: almost-make-personalizedrefrigerator
+Version: 0.0.2
+Summary: A makefile parser
+Home-page: https://github.com/personalizedrefrigerator/AlmostMake
+Author: Henry Heino
+Author-email: personalizedrefrigerator@gmail.com
+License: UNKNOWN
+Description: # AlmostMake
+        
+        A pure-python, not-quite-POSIX-compliant implementation of make.
+        
+        ## Testing
+        
+        To test AlmostMake, run,
+        ```sh
+        $ cd tests
+        $ python3 ../make
+        ```
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 2 - Pre-Alpha
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
