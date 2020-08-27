@@ -8,7 +8,7 @@ all:
 	@echo "    shell: Depends on play. Open an interface to the built-in shell."
 	@echo "    clean: Clean up after play, build."
 	@echo "    build: Generate distribution archives. See https://packaging.python.org/tutorials/packaging-projects/"
-	@echo "    publish: Push to pypi. If the version-numbers in setup.py are out-of-date, this may fail."
+	@echo "    publish: Push to pypi. If the version-numbers in setup.py are out-of-date, this may fail. Note: Also update the version information in cli.py! This should be automated, but, for now, isn't!"
 	@echo "    publish-test: Push to testpypi! Like publish, but for testing!"
 
 # Install! We can test the command through 'almake'!
