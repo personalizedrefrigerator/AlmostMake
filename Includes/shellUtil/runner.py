@@ -64,6 +64,22 @@ def unwrapParens(buff):
 
     return removeEmpty(result)
 
+# Remove leading and trailing quotation marks from the given text.
+# E.g. "a and b" -> a and b, "a and b' -> "a and b'. Remove at most 1.
+def stripQuotes(text):
+    if len(text) < 2:
+        return text
+    result = []
+    firstChar = text[0]
+    lastChar = text[len(text) - 1]
+    
+    if firstChar != lastChar:
+        return text
+    
+    if firstChar in { '"', "'" }:
+        return text[1 : len(text) - 1]
+    return text
+
 # Cluster elements in [splitText] based on precedence.
 # E.g. ['a', '||', 'b', '&&', 'c', '-l'] -> [['a'], '||', [['b'], '&&', ['c', '-l']]].
 def cluster(splitText, level=0):
@@ -225,25 +241,99 @@ def evalCommand(orderedCommand, customCommands={}, flags=[]):
     else:
         raise SyntaxError("Too many parts to expression, %s" % str(orderedCommand))
 
-# Run a filter on shlex's split output list.
+def shSplit(text):
+    escaped = False
+    inQuote = None
+    result = []
+    buff = ""
+    
+    # Split by spaces and parentheses (and other punctuation chars...).
+    for char in text:
+        buff += char
+        if char in { '"', "'" }:
+            if inQuote == char:
+                inQuote = None
+            elif inQuote == None:
+                inQuote = char
+        elif char in [ '(', ')', '|', '&', '>', ';', ' ', '\t', '\n' ] and inQuote == None:
+            result.append(stripQuotes(buff[:len(buff)-1]))
+            result.append(char)
+            buff = ""
+    
+    result.append(stripQuotes(buff))
+    
+    buff = ''
+    filtered = []
+    
+    
+    # Remove spaces, clump parentheses.
+    for part in result:
+        part = part.strip()
+        
+        if part != '':
+            # If the direction of parentheses switches...
+            if part == '(' and ')' in buff  or  part == ')' and '(' in buff:
+                filtered.append(buff)
+                buff = ''
+        
+            if part.startswith('(') or part.endswith(')'):
+                buff += part
+            elif buff != "":
+                filtered.append(buff)
+                buff = ''
+                filtered.append(part)
+            else:
+                filtered.append(part)
+    if buff != '':
+        filtered.append(buff)
+    
+    return filtered
+                
+
+# Run a filter on lex's split output list.
 # E.g. Map [ ... '2', '>&', '1', ...] to
 # [... '2>&1' ...].
 def filterSplitList(splitString):
     result = []
     buff = []
+    
+    splitString = splitString.copy()
+    splitString.reverse()
 
     for part in splitString:
-        part = part.strip()
         buff.append(part)
 
-        if part == '2':
+        if buff == ['|', '|']:
+            result.append('||')
+            buff = []
+        elif buff == ['&', '&']:
+            result.append('&&')
+            buff = []
+        elif buff == ['>', '>']:
+            result.append('>>')
+            buff = []
+        elif part in [ '|', '&', '>' ]:
             result.extend(buff[:len(buff) - 1])
-            buff = [ '2' ]
-        elif buff == ['2', '>&', '1']:
+            buff = [ part ]
+    
+    result.extend(buff)
+    result.reverse() # Reverse so that we have ['&', '&', '&'] -> ['&', '&&'], not ['&&', '&']
+    
+    splitString = result
+    result = []
+    buff = []
+    
+    # A second pass for parts that may share characters with those above.
+    for part in splitString:
+        buff.append(part)
+        if buff == ['2', '>', '&', '1']:
             result.append('2>&1')
             buff = []
+        elif part == '2':
+            result.extend(buff[:len(buff) - 1])
+            buff = [ part ]
     result.extend(buff)
-
+    
     return result
 
 # Run the POSIX-like shell command [commandString]. Define
@@ -251,10 +341,13 @@ def filterSplitList(splitString):
 def runCommand(commandString, customCommands = {}):
     # Note: punctuation_chars=True causes shlex to cluster ();&| runs.
     #       For example, a && b -> ['a', '&&', 'b'], instead of ['a', '&', '&', 'b'].
-    portions = filterSplitList(list(shlex.shlex(commandString, posix=True, punctuation_chars=True)))
+    #       It also, however, clusters runs we don't want, like a &&& b -> ['a', '&&&', 'b'].
+    #       This, however, split 'a/b/c' into ['a', '/', 'b', '/', 'c'], which we REALLY DON'T WANT.
+    #       As such, we're using 'shSplit' here.
+    portions = filterSplitList(shSplit(commandString))
     ordered = cluster(portions) # Convert ['a', '&&', 'b', '||', 'c'] into
                                 #       [[['a'], '&&', ['b']], '||', ['c']]
-    evalCommand(ordered, customCommands)
+    return evalCommand(ordered, customCommands)
 
 if __name__ == "__main__":
     # Run directly? Run tests!
@@ -278,3 +371,29 @@ if __name__ == "__main__":
     assertEql(cluster([ 'c', '|', 'd', '||', '(', 'f', '&&', 'g', '||', '(', 'h', '))']), 
             [[ ['c'], '|', ['d'] ], '||', [ [ ['f'], '&&', ['g'] ], '||', ['h'] ] ], "More complicated; nested parentheses")
     assertEql(cluster([ '((((((((((', 'a', '))))))))))' ]), ['a'], "Lots of parentheses")
+    assertEql(filterSplitList([]), [], "Empty split list")
+    assertEql(filterSplitList([ '2', '>', '&', '1' ]), [ '2>&1' ], "Split to error re-direction.")
+    assertEql(filterSplitList([ '1', '|', '|', '2' ]), ['1', '||', '2'], "Cluster or.")
+    assertEql(filterSplitList([ '1', '|', '|', '2', '&', '&', '&', '3', '>', '4' ]), ['1', '||', '2', '&', '&&', '3', '>', '4'], "More complicated clustering")
+    assertEql(shSplit("123"), ["123"], "Simple split test")
+    assertEql(shSplit("1|2|3"), ["1", "|", "2", "|", "3"], "Splitting on pipes")
+    assertEql(shSplit("1||2&&3"), ["1", "|", "|", "2", "&", "&", "3"], "More complicated, no-space splitting.")
+    assertEql(shSplit("1 || 2"), ["1", "|", "|", "2"], "Pipe splitting with spaces.")
+    assertEql(shSplit("ls -la"), ["ls", "-la"], "Space-splitting")
+    assertEql(shSplit("'ls -la'"), ["ls -la"], "Quoted space-(not)splitting")
+    assertEql(shSplit("1  \t\n > 2 &\n   & 1>2     "), ["1", ">", "2", "&", "&", "1", ">", "2"], "Lots of spaces!")
+    assertEql(shSplit("1;2"), ["1", ";", "2"], "Does it correctly split on semi-colons?")
+    assertEql(shSplit("1(2)"), ["1", "(", "2", ")"], "What about parentheses?")
+    assertEql(shSplit("ls -la && (echo -ne foo\\n || (ps))"), ["ls", "-la", "&", "&", "(", "echo", "-ne", "foo\\n", "|", "|", "(", "ps", "))"], "Something like sh.")
+    assertEql(shSplit("((( )( )))"), ["(((", ")", "(", ")))"], "Almost all parentheses!")
+    assertEql(filterSplitList(shSplit("ls || ls")), ["ls", "||", "ls"], "Shlex replacement test 1!")
+    assertEql(filterSplitList(shSplit("ls && ps")), ["ls", "&&", "ps"], "Shlex replacement test 2!")
+    assertEql(filterSplitList(shSplit("ls; ps")), ["ls", ";", "ps"], "Shlex replacement test 3!")
+    assertEql(filterSplitList(shSplit("ls; (ps 2>&1 | grep 'foo && not foo')")), ["ls", ";", "(", "ps", "2>&1", "|", "grep", "foo && not foo", ")"], "Shlex replacement test 4!")
+    assertEql(filterSplitList(shSplit("\"ls; (ps 2>&1 | grep 'foo && not foo')\"")), ["ls; (ps 2>&1 | grep 'foo && not foo')"], "Shlex replacement test 5!")
+    assertEql(filterSplitList(shSplit("make CFLAGS=thing LDFLAGS= CC=cc GCC=g++ A= TEST=33")), 
+        [ "make", "CFLAGS=thing", "LDFLAGS=", "CC=cc", "GCC=g++", "A=", "TEST=33" ],
+        "Shlex replacement test 6!")
+    assertEql(filterSplitList(shSplit('TEST_MACRO="Testing1234=:= := This **should ** work! "')),
+        ['TEST_MACRO="Testing1234=:= := This **should ** work! "'], "Quoting that starts in the middle?")
+    

@@ -7,6 +7,7 @@ import cmd, os, sys
 from Includes.printUtil import *
 import Includes.macroUtil as macroUtil
 import Includes.shellUtil.runner as runner
+import Includes.shellUtil.escapeParser as escapeParser
 
 SHELL_NAME = "AlmostMake's NotQuiteAShell"
 
@@ -50,6 +51,46 @@ def customLs(args):
 def customPwd(args):
     print(os.path.abspath("."))
 
+def customEcho(args):
+    if len(args) == 1:
+        return 0
+    
+    doEscapes = False
+    doNewlines = True
+    firstArg = args[1].strip()
+    
+    if firstArg.startswith("-") and len(firstArg) <= 3:
+        doEscapes = 'e' in firstArg
+        doNewlines = not 'n' in firstArg
+        
+        args = args[2:]
+        
+        if len(args) > 0 and args[0].startswith('-') and len(args[0]) <= 2:
+            if 'e' in args[0]:
+                doEscapes = True
+                trimArg = True
+            if 'n' in args[0]:
+                doNewlines = False
+                trimArg = True
+            if trimArg:
+                args = args[1:]
+    else:
+        args = args[1:]
+    
+    
+    if len(args) < 1:
+        return 0
+    
+    printEnd = '\n'
+    toPrint = " ".join(args)
+    
+    if not doNewlines:
+        printEnd = ''
+    
+    if doEscapes:
+        toPrint = escapeParser.parseEscapes(toPrint)
+    
+    print(toPrint, end=printEnd)
 # Get a set of custom commands that can be used.
 def getCustomCommands(macros):
     result = {}
@@ -57,9 +98,10 @@ def getCustomCommands(macros):
     for key in CUSTOM_COMMANDS:
         result[key] = CUSTOM_COMMANDS[key]
     
-    if "CUSTOM_LS_PWD" in macros:
+    if "_CUSTOM_BASE_COMMANDS" in macros:
         result["ls"] = lambda args, flags: filterArgs(args, 1) and customLs(args)
         result["pwd"] = lambda args, flags: filterArgs(args, 1) and customPwd(args)
+        result["echo"] = lambda args, flags: filterArgs(args, 2) and customEcho(args)
     
     return result
 
@@ -76,7 +118,11 @@ if __name__ == "__main__":
         if "PS1" in os.environ:
             ps1 = os.environ["PS1"]
         
-        command = input(ps1)
+        customEcho(["echo", "-n", "-e", ps1])
+        command = input("")
         
-        result, macros = evalScript(command, macros)
+        try:
+            result, macros = evalScript(command, macros)
+        except Exception as e:
+            print("Error running %s:\n%s" % (command, str(e)))
 

@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 import sys, os.path
 from Includes.printUtil import *
-from Includes.makeUtil import *
+import Includes.makeUtil as makeUtil
+import Includes.macroUtil as macroUtil
 from Includes.argsUtil import *
 
 ARGUMENT_MAPPINGS = \
@@ -41,7 +42,7 @@ def printHelp():
     cprint("    -C dir", FORMAT_COLORS['GREEN'])
     print("\t Switch to directory, dir, before running make. ")
     cprint("    -s, --silent", FORMAT_COLORS['GREEN'])
-    print("\t In most cases, don't print output.")
+    print(" In most cases, don't print output.")
     print()
     cprint("Note: ", FORMAT_COLORS['PURPLE'])
     print("Macro definitions that override those from the environment" +
@@ -64,7 +65,7 @@ if __name__ == "__main__":
         fileName = 'Makefile'
         targets = []
         
-        defaultMacros = getDefaultMacros() # Fills with macros from environment, etc.
+        defaultMacros = macroUtil.getDefaultMacros() # Fills with macros from environment, etc.
         overrideMacros = {}
         
         if 'directory' in args:
@@ -80,10 +81,10 @@ if __name__ == "__main__":
                                 #^ Use ourself, rather than another make implementation.
 
         if 'keep-going' in args:
-            setStopOnError(False)
+            makeUtil.setStopOnError(False)
         
         if 'silent' in args:
-            setSilent(True)
+            makeUtil.setSilent(True)
 
         if 'file' in args:
             fileName = args['file']
@@ -117,7 +118,7 @@ if __name__ == "__main__":
         if not 'print-expanded' in args:
             # Run for each target.
             for target in targets:
-                runMakefile(fileContents, target, defaultMacros, overrideMacros)
+                makeUtil.runMakefile(fileContents, target, defaultMacros, overrideMacros)
         else:
-            contents, macros = expandMacros(fileContents, defaultMacros)
+            contents, macros = macroUtil.expandMacros(fileContents, defaultMacros)
             print(contents)

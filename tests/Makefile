@@ -1,6 +1,10 @@
 #!make
 # To be run with AlmostMake.
 
+# Use the mini-shell built into AlmostMake
+export _BUILTIN_SHELL := 1
+export _CUSTOM_BASE_COMMANDS := 1
+
 CC = clang
 CFLAGS =
 TEST_MACRO = Testing1234=:= := This **should ** work! # A comment!

@@ -4,6 +4,7 @@
 
 import re, os
 from Includes.printUtil import *
+import Includes.errorUtil as errorUtil
 
 # Regular expressions:
 MACRO_NAME_EXP = "[a-zA-Z0-9_\\@\\^\\<]"
@@ -15,10 +16,6 @@ SPACE_CHARS = re.compile("\\s")
 
 # Constant(s)
 COMMENT_CHAR = '#'
-
-# Options
-STOP_ON_ERROR = True
-SILENT = False
 
 # Filter function lists.
 # These are only used by expandAndDefineMacros
@@ -37,22 +34,12 @@ LAZY_EVAL_CONDITIONS = \
 # Commands executable as $(COMMAND_NAME Args).
 MACRO_COMMANDS = {}
 
-def reportError(message):
-    if not SILENT or STOP_ON_ERROR:
-        cprint(str(message) + "\n", "RED", file=sys.stderr)
-    
-    if STOP_ON_ERROR:
-        print ("Stopping.")
-        sys.exit(1)
-
 # Option-setting functions
 def setStopOnError(stopOnErr):
-    global STOP_ON_ERROR
-    STOP_ON_ERROR = stopOnErr
+    errorUtil.setStopOnError(stopOnErr)
 
 def setSilent(silent):
-    global SILENT
-    SILENT = silent
+    errorUtil.setSilent(silent)
 
 def setMacroCommands(commands):
     global MACRO_COMMANDS
@@ -164,7 +151,7 @@ def stripComments(line):
         elif c in multiLevelClose and not escaped and not inSomeSingleLevel:
             bracketPairChar = multiLevelClose[c]
             if multiLevelOpen[bracketPairChar] == 0:
-                reportError("Parentheses mismatch on line with content: %s" % line)
+                errorUtil.reportError("Parentheses mismatch on line with content: %s" % line)
             else:
                 multiLevelOpen[bracketPairChar] -= 1
         elif c == COMMENT_CHAR and not escaped and not inSomeSingleLevel:
@@ -219,7 +206,7 @@ def expandMacroUsages(line, macros):
             elif words[0] in MACRO_COMMANDS:
                 buff = MACRO_COMMANDS[words[0]](" ".join(words[1:]), macros)
             else:
-                reportError("Undefined macro %s" % buff)
+                errorUtil.reportError("Undefined macro %s. Context: %s.\n All Macros: %s" % (buff, line, str(macros)))
             expanded += buff + afterBuff
 #            print("Expanded to %s." % (buff + afterBuff))
             buff = ''
@@ -227,7 +214,7 @@ def expandMacroUsages(line, macros):
         prev = c
     
     if parenLevel > 0:
-        reportError("Unclosed parenthesis: %s" % line)
+        errorUtil.reportError("Unclosed parenthesis: %s" % line)
 
     # Append buff, but ignore trailing space.
     expanded += buff[:len(buff) - 1] + afterBuff

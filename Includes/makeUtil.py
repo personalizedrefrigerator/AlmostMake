@@ -8,13 +8,18 @@
 
 import re, sys, os, subprocess, time
 from Includes.printUtil import *
-from Includes.macroUtil import *
+import Includes.macroUtil as macroUtil
+import Includes.shellUtil.shellUtil as shellUtil
+import Includes.errorUtil as errorUtil
 
 # Regular expressions
 SPACE_CHARS = re.compile("\\s")
 
 # Constants.
 RECIPE_START_CHAR = '\t'
+
+# Options
+SILENT = False
 
 # Commands callable as $(COMMAND_NAME Arguments).
 MACRO_COMMANDS = \
@@ -23,9 +28,9 @@ MACRO_COMMANDS = \
 }
 
 # Send commands to macroUtil.py
-setMacroCommands(MACRO_COMMANDS)
-addMacroDefCondition(lambda line: not line.startswith(RECIPE_START_CHAR))
-addLazyEvalCondition(lambda line: line.startswith(RECIPE_START_CHAR))
+macroUtil.setMacroCommands(MACRO_COMMANDS)
+macroUtil.addMacroDefCondition(lambda line: not line.startswith(RECIPE_START_CHAR))
+macroUtil.addLazyEvalCondition(lambda line: line.startswith(RECIPE_START_CHAR))
 
 # Targets that are used by this parser/should be ignored.
 MAGIC_TARGETS = \
@@ -33,6 +38,17 @@ MAGIC_TARGETS = \
     ".POSIX",
     ".SUFFIXES"
 }
+
+# Option-setting functions
+def setStopOnError(stopOnErr):
+    macroUtil.setStopOnError(stopOnErr)
+    errorUtil.setStopOnError(stopOnErr)
+
+def setSilent(silent):
+    global SILENT
+    SILENT = silent
+    macroUtil.setSilent(silent)
+    errorUtil.setSilent(silent)
 
 # Get a tuple.
 # First item: a map from target names
@@ -57,7 +73,7 @@ def getTargetActions(content):
         elif len(line.strip()) > 0:
             if not ':' in line:
                 if len(currentRecipe) > 0:
-                    reportError("Pre-recipe line must contain separator! Line: %s" % line)
+                    errorUtil.reportError("Pre-recipe line must contain separator! Line: %s" % line)
                 else:
                     continue
             sepIndex = line.index(':')
@@ -153,7 +169,7 @@ def satisfyDependencies(target, targets, macros):
         if selfExists:
             return 1
         else:
-            reportError("No rule to make %s." % target)
+            errorUtil.reportError("No rule to make %s." % target)
             return # If still running, the user wants us to exit successfully.
     runRecipe = False
     deps, commands = targets[target]
@@ -207,7 +223,7 @@ def satisfyDependencies(target, targets, macros):
         macros["<"] = deps[0]
 
     for command in commands:
-        command = expandMacroUsages(command, macros).strip()
+        command = macroUtil.expandMacroUsages(command, macros).strip()
         if command.startswith("@"):
             command = command[1:]
         elif not SILENT:
@@ -216,16 +232,24 @@ def satisfyDependencies(target, targets, macros):
         if command.startswith("-"):
             command = command[1:]
         try:
-            status = subprocess.run(command, shell=True, check=True)
+            status = 0
+            
+            if not "_BUILTIN_SHELL" in macros:
+            	status = subprocess.run(command, shell=True, check=True).returncode
+            else:
+            	status,_ = shellUtil.evalScript(command, macros)
+            
+            if status != 0 and haltOnFail:
+            	errorUtil.reportError("Command %s exited with non-zero exit status, %s." % (command, str(status)))
         except Exception as e:
             if haltOnFail: # e.g. -rm foo should be silent even if it cannot remove foo.
-                reportError("Unable to run command:\n    ``%s``. \n\n  Message:\n%s" % (command, str(e)))
+                errorUtil.reportError("Unable to run command:\n    ``%s``. \n\n  Message:\n%s" % (command, str(e)))
 
 # Run commands specified to generate
 # dependencies of target by the contents
 # of the makefile given in contents.
 def runMakefile(contents, target = '', defaultMacros={ "MAKE": "make" }, overrideMacros={}):
-    contents, macros = expandAndDefineMacros(contents, defaultMacros)
+    contents, macros = macroUtil.expandAndDefineMacros(contents, defaultMacros)
     targetRecipes, targets = getTargetActions(contents)
 
     if target == '' and len(targets) > 0:
