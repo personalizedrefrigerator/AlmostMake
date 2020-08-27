@@ -22,7 +22,9 @@ NO_SAVE_ARGS = \
 {
     'C', 'directory',
     'f', 'file',
-    'default'
+    'default',
+    'h', 'help', 
+    'version'
 }
 
 def printHelp():
@@ -45,8 +47,8 @@ def printHelp():
     print("\t Switch to directory, dir, before running make. ")
     cprint("    -s, --silent", FORMAT_COLORS['GREEN'])
     print(" In most cases, don't print output.")
-    cprint("    -b", FORMAT_COLORS['GREEN'])
-    print("\t\t Use the built-in shell for commands in the makefile. This can also be enabled as follows:")
+    cprint("    -b, --built-in-shell", FORMAT_COLORS['GREEN'])
+    print("\t Use the built-in shell for commands in the makefile. This can also be enabled as follows:")
     cprint("   export ", FORMAT_COLORS['PURPLE'])
     print("_BUILTIN_SHELL ", end='')
     cprint(":= ", FORMAT_COLORS['YELLOW'])
@@ -60,15 +62,23 @@ def printHelp():
     cprint("# Enable built-in overrides for several commands like ls, echo, and pwd.", FORMAT_COLORS['GREEN'])
     print()
     cprint("Note: ", FORMAT_COLORS['PURPLE'])
+    print("AlmostMake's built-in shell is currently very limited.")
+    print()
+    cprint("Note: ", FORMAT_COLORS['PURPLE'])
     print("Macro definitions that override those from the environment" +
 " can be provided in addition to targets and options. For example,")
     cprint("    make target1 target2 target3 CC=gcc CFLAGS=-O3", FORMAT_COLORS['YELLOW'])
     print()
     print("should make target1, target2, and target3 with the " +
           "macros CC and CFLAGS by default set to gcc and -O3, respectively.")
+    cprint("Note: ", FORMAT_COLORS['PURPLE'])
+    print("Options can also be given to almake through the environment. " +
+    	  "This is done through the MAKEFLAGS variable. For example, " +
+    	  "setting MAKEFLAGS to --built-in-shell causes almake to " +
+    	  "always use its built-in shell, rather than the system shell.")
 
 def printVersion():
-    print("AlmostMake v0.0.7")
+    print("AlmostMake v0.0.8")
     print("    This software is licensed to you under the BSD-3-Clause License, as printed below:")
     print("""
 BSD 3-Clause License
