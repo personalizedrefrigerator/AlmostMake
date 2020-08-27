@@ -70,8 +70,8 @@ class SimpleShell(cmd.Cmd):
         
         self.updatePrompt()
 
-def main():
-    SimpleShell(True, [ 'use-system-pipe' ]).cmdloop()
+def main(baseCommands=True, flags=[ 'use-system-pipe' ]):
+    SimpleShell(baseCommands, flags).cmdloop()
 
 if __name__ == "__main__":
     main()
