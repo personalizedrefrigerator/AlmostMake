@@ -6,7 +6,7 @@ readmeFile.close()
 
 setuptools.setup(
     name="almost_make-personalizedrefrigerator",
-    version="0.0.02",
+    version="0.0.4",
     author="Henry Heino",
     author_email="personalizedrefrigerator@gmail.com",
     description="A makefile parser",
@@ -20,5 +20,10 @@ setuptools.setup(
         "Operating System :: OS Independent",
         "Development Status :: 2 - Pre-Alpha"
     ],
+    entry_points={
+        "console_scripts": [
+            "almake = almost_make.cli:main"
+        ]
+    },
     python_requires=">=3.7"
 )

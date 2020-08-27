@@ -7,10 +7,10 @@
 #  - BSDMake: http://khmere.com/freebsd_book/html/ch01.html Accessed Aug 22 2020 
 
 import re, sys, os, subprocess, time
-from Includes.printUtil import *
-import Includes.macroUtil as macroUtil
-import Includes.shellUtil.shellUtil as shellUtil
-import Includes.errorUtil as errorUtil
+from almost_make.utils.printUtil import *
+import almost_make.utils.macroUtil as macroUtil
+import almost_make.utils.shellUtil.shellUtil as shellUtil
+import almost_make.utils.errorUtil as errorUtil
 
 # Regular expressions
 SPACE_CHARS = re.compile("\\s")
@@ -167,7 +167,7 @@ def satisfyDependencies(target, targets, macros):
 
     if not target in targets:
         if selfExists:
-            return 1
+            return True
         else:
             errorUtil.reportError("No rule to make %s." % target)
             return # If still running, the user wants us to exit successfully.
@@ -244,6 +244,7 @@ def satisfyDependencies(target, targets, macros):
         except Exception as e:
             if haltOnFail: # e.g. -rm foo should be silent even if it cannot remove foo.
                 errorUtil.reportError("Unable to run command:\n    ``%s``. \n\n  Message:\n%s" % (command, str(e)))
+    return True
 
 # Run commands specified to generate
 # dependencies of target by the contents

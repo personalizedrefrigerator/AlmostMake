@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from Includes.printUtil import *
+from almost_make.utils.printUtil import *
 
 SILENT = False
 STOP_ON_ERROR = True

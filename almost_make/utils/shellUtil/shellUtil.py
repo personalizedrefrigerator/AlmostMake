@@ -4,10 +4,10 @@
 
 import cmd, os, sys
 
-from Includes.printUtil import *
-import Includes.macroUtil as macroUtil
-import Includes.shellUtil.runner as runner
-import Includes.shellUtil.escapeParser as escapeParser
+from almost_make.utils.printUtil import *
+import almost_make.utils.macroUtil as macroUtil
+import almost_make.utils.shellUtil.runner as runner
+import almost_make.utils.shellUtil.escapeParser as escapeParser
 
 SHELL_NAME = "AlmostMake's NotQuiteAShell"
 
@@ -121,6 +121,7 @@ def evalScript(text, macros={}, resetCwd = True):
 if __name__ == "__main__":
     ps1 = "$ "
     macros = macroUtil.getDefaultMacros()
+    macros["_CUSTOM_BASE_COMMANDS"] = True # Use custom base commands for testing.
 
     while True:
         if "PS1" in os.environ:

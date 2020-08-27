@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 import sys, os.path
-from Includes.printUtil import *
-import Includes.makeUtil as makeUtil
-import Includes.macroUtil as macroUtil
-from Includes.argsUtil import *
+from almost_make.utils.printUtil import *
+import almost_make.utils.makeUtil as makeUtil
+import almost_make.utils.macroUtil as macroUtil
+from almost_make.utils.argsUtil import *
 
 ARGUMENT_MAPPINGS = \
 {
@@ -67,7 +67,7 @@ def printHelp():
           "macros CC and CFLAGS by default set to gcc and -O3, respectively.")
 
 # On commandline run...
-def main(args):
+def main(args=sys.argv):
     args = parseArgs(args, ARGUMENT_MAPPINGS)
     
     # Fill args from MAKEFLAGS (see https://www.gnu.org/software/make/manual/make.html#How-the-MAKE-Variable-Works)
@@ -144,4 +144,4 @@ def main(args):
             print(contents)
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()

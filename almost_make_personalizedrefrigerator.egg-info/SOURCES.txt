@@ -1,8 +1,0 @@
-README.md
-setup.py
-almost_make/__init__.py
-almost_make/cli.py
-almost_make_personalizedrefrigerator.egg-info/PKG-INFO
-almost_make_personalizedrefrigerator.egg-info/SOURCES.txt
-almost_make_personalizedrefrigerator.egg-info/dependency_links.txt
-almost_make_personalizedrefrigerator.egg-info/top_level.txt

@@ -3,8 +3,8 @@
 # Macro parsing utilities.
 
 import re, os
-from Includes.printUtil import *
-import Includes.errorUtil as errorUtil
+from almost_make.utils.printUtil import *
+import almost_make.utils.errorUtil as errorUtil
 
 # Regular expressions:
 MACRO_NAME_EXP = "[a-zA-Z0-9_\\@\\^\\<]"
