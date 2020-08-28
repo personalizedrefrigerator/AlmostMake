@@ -5,7 +5,7 @@ longDescription = readmeFile.read()
 readmeFile.close()
 
 setuptools.setup(
-    name="almost_make-personalizedrefrigerator",
+    name="almost_make",
     version="0.0.9",
     author="Henry Heino",
     author_email="personalizedrefrigerator@gmail.com",
