@@ -36,12 +36,12 @@ firstTarget:
 ### From PyPI...
 AlmostMake is on the Python Package Index! To install it, run:
 ```sh
-$ python3 -m pip install almost-make-personalizedrefrigerator
+$ python3 -m pip install almost-make
 ```
 
 To update it,
 ```sh
-$ python3 -m pip install --upgrade almost-make-personalizedrefrigerator
+$ python3 -m pip install --upgrade almost-make
 ```
 
 ### From GitHub...

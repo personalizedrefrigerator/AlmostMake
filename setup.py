@@ -5,8 +5,8 @@ longDescription = readmeFile.read()
 readmeFile.close()
 
 setuptools.setup(
-    name="almost_make-personalizedrefrigerator",
-    version="0.0.9",
+    name="almost_make",
+    version="0.0.10",
     author="Henry Heino",
     author_email="personalizedrefrigerator@gmail.com",
     description="A makefile parser",

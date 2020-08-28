@@ -4,7 +4,7 @@
 # Useful Resources:
 #  - Chris Wellons' "A Tutorial on Portable Makefiles". https://nullprogram.com/blog/2017/08/20/ Accessed August 22, 2020
 #  - GNUMake: https://www.gnu.org/software/make/manual/make.html Accessed August 22, 2020
-#  - BSDMake: http://khmere.com/freebsd_book/html/ch01.html Accessed Aug 22 2020 
+#  - BSDMake:  http://khmere.com/freebsd_book/html/ch01.html Accessed Aug 22 2020 
 
 import re, sys, os, subprocess, time
 from almost_make.utils.printUtil import *

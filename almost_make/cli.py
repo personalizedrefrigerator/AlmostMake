@@ -84,7 +84,7 @@ def printHelp():
     	  "always use its built-in shell, rather than the system shell.")
 
 def printVersion():
-    print("AlmostMake v0.0.9")
+    print("AlmostMake v0.0.10")
     print("    This software is licensed to you under the BSD-3-Clause License, as printed below:")
     print("""
 BSD 3-Clause License
