@@ -2,7 +2,7 @@
 
 # See https://danishpraka.sh/2018/09/27/shell-in-python.html (Accessed Aug 22)
 
-import cmd, os, sys
+import cmd, os, sys, shutil
 
 from almost_make.utils.printUtil import *
 import almost_make.utils.shellUtil.runner as runner
@@ -22,7 +22,13 @@ If [status] is not provided, exit with code zero.""",
 Print the contents of [directory] or the current working
 directory.""",
     "pwd": """pwd
-Print the current working directory's absolute path."""
+Print the current working directory's absolute path.""",
+    "echo": """echo [options] [text]
+Send [text] to standard output.
+[options] can contain:
+ -n\t\t Do not print a trailing newline.
+ -e\t\t Evaluate escape characters (e.g. echo -ne \\n outputs a single newline).
+"""
 }
 
 def filterArgs(args, minimumLength, stdout):

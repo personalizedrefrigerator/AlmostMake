@@ -1,5 +1,8 @@
 #!/usr/bin/python3
 
+# A very simple command-runner.
+# See: https://www.gnu.org/software/bash/manual/bash.html#Shell-Expansions
+
 import shlex, os, re
 import subprocess
 
@@ -181,7 +184,8 @@ def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=No
         return 0
     
     sysShell = SYSTEM_SHELL in flags or None
-    
+
+    # args = globArgs(args, state)
     command = args[0].strip()
 
     if command in customCommands:
