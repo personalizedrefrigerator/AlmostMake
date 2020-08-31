@@ -5,7 +5,6 @@
 import cmd, os, sys
 
 from almost_make.utils.printUtil import *
-import almost_make.utils.macroUtil as macroUtil
 import almost_make.utils.shellUtil.runner as runner
 import almost_make.utils.shellUtil.escapeParser as escapeParser
 
@@ -91,6 +90,7 @@ def customEcho(args):
         toPrint = escapeParser.parseEscapes(toPrint)
     
     print(toPrint, end=printEnd)
+
 # Get a set of custom commands that can be used.
 def getCustomCommands(macros):
     result = {}
@@ -106,7 +106,7 @@ def getCustomCommands(macros):
     
     return result
 
-def evalScript(text, macros={}, resetCwd = True, defaultFlags = []):
+def evalScript(text, macroUtil, macros={}, resetCwd = True, defaultFlags = []):
     oldCwd = os.path.abspath(os.getcwd())
     
     text, macros = macroUtil.expandAndDefineMacros(text, macros, {}, {})

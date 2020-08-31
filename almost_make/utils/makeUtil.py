@@ -16,6 +16,20 @@ import almost_make.utils.errorUtil as errorUtil
 # Regular expressions
 SPACE_CHARS = re.compile("\\s")
 
+# Constants
+RECIPE_START_CHAR = '\t'
+
+class MakeUtil:
+    recipeStartChar = '\t'
+    silent = False
+    macroCommands = {}
+
+    def __init__(self):
+        self.macroCommands["shell"] = lambda code, macros: os.popen(code).read().rstrip(' \n\r\t')
+        self.macroUtil = macroUtil.MacroUtil()
+        self.macroUtil.setMacroCommands(self.macroCommands)
+
+
 # Constants.
 RECIPE_START_CHAR = '\t'
 
@@ -110,7 +124,7 @@ def getTargetActions(content):
 
 # Generate [target] if necessary. Returns
 # True if generated, False if not necessary.
-def satisfyDependencies(target, targets, macros):
+def satisfyDependencies(target, targets, macros, maxJobs=1):
     target = target.strip()
     if not target in targets:
         # Can we generate a recipe?
@@ -213,7 +227,7 @@ def satisfyDependencies(target, targets, macros):
     for dep in deps:
 #        print("Checking dep %s; %s" % (dep, str(needGenerate(dep))))
         if dep.strip() != "" and needGenerate(dep):
-            satisfyDependencies(dep, targets, macros)
+            satisfyDependencies(dep, targets, macros, maxJobs)
     # Here, we know that
     # (1) all dependencies are satisfied
     # (2) we need to run each command in recipe.
@@ -255,7 +269,7 @@ def satisfyDependencies(target, targets, macros):
 # Run commands specified to generate
 # dependencies of target by the contents
 # of the makefile given in contents.
-def runMakefile(contents, target = '', defaultMacros={ "MAKE": "make" }, overrideMacros={}):
+def runMakefile(contents, target = '', defaultMacros={ "MAKE": "make" }, overrideMacros={}, jobs=1):
     contents, macros = macroUtil.expandAndDefineMacros(contents, defaultMacros)
     targetRecipes, targets = getTargetActions(contents)
 
@@ -266,7 +280,7 @@ def runMakefile(contents, target = '', defaultMacros={ "MAKE": "make" }, overrid
     for macroName in overrideMacros:
         macros[macroName] = overrideMacros[macroName]
 
-    satisfied = satisfyDependencies(target, targetRecipes, macros)
+    satisfied = satisfyDependencies(target, targetRecipes, macros, jobs)
 
     if not satisfied and not SILENT:
         print("Not hing to be done for target ``%s``." % target)
