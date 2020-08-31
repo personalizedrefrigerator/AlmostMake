@@ -2,9 +2,13 @@
 
 import cmd, os, sys
 import almost_make.utils.shellUtil.shellUtil as shell
+import almost_make.utils.shellUtil.runner as runner
 import almost_make.utils.macroUtil as macroUtility
 import almost_make.utils.shellUtil.escapeParser as escapeParser
 from almost_make.utils.printUtil import *
+
+from almost_make.utils.argsUtil import parseArgs
+from almost_make.version import printVersion
 
 # See https://docs.python.org/3/library/cmd.html
 # TODO:
@@ -71,8 +75,53 @@ class SimpleShell(cmd.Cmd):
         
         self.updatePrompt()
 
-def main(baseCommands=True, flags=[]):
-    SimpleShell(baseCommands, flags).cmdloop()
+ARG_MAPPINGS = \
+{
+    'h': 'help',
+    'v': 'version',
+    'B': 'without-builtins',
+    'p': 'system-pipe'
+}
+
+def printHelp():
+    cprint("Help: \n", FORMAT_COLORS['YELLOW'])
+    cprint(" Summary: ", FORMAT_COLORS['YELLOW'])
+    print("Run an interactive version of the shell built into almake. This is a POSIX-like shell. It is not POSIX-compliant.")
+    cprint(" Usage: almake_shell [options]\n", FORMAT_COLORS['YELLOW'])
+    print("  ...where options include:")
+    cprint("    -h, --help", FORMAT_COLORS['GREEN'])
+    print("\t Print this message.")
+    cprint("    --version", FORMAT_COLORS['GREEN'])
+    print("\t Print version and licensing information.")
+    cprint("    -B, --without-builtins", FORMAT_COLORS['GREEN'])
+    print("\t Do not (re)define built-in commands (like echo). By default, echo, ls, dir, pwd, and perhaps other commands," +
+    " are defined and override any commands with the same name already present in the system.")
+    cprint("    -p, --system-pipe", FORMAT_COLORS['GREEN'])
+    print("\t Rather than attempting to pipe output between commands (e.g. in ls | grep foo), send piped portions of the input " +
+        "to the system's shell.")
+
+def main():
+    args = parseArgs(sys.argv, ARG_MAPPINGS)
+    
+    if 'help' in args:
+        printHelp()
+        sys.exit(1)
+    elif 'version' in args:
+        printVersion()
+        sys.exit(1)
+    else:
+        builtins = True
+        flags = []
+
+        if 'without-builtins' in args:
+            builtins = False
+
+        if 'system-pipe' in args:
+            flags.append(runner.USE_SYSTEM_PIPE)
+
+        SimpleShell(builtins, flags).cmdloop()
+
+
 
 if __name__ == "__main__":
     main()
