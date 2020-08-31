@@ -35,6 +35,7 @@ class MakeUtil:
     currentJobs = 1 # Number of currently running jobs...
     jobLock = threading.Lock()
     pending = {} # Set of pending jobs.
+    justPrint = False # Print commands, without evaluating.
 
     def __init__(self):
         self.macroCommands["shell"] = lambda code, macros: os.popen(code).read().rstrip(' \n\r\t')
@@ -54,6 +55,9 @@ class MakeUtil:
         self.silent = silent
         self.macroUtil.setSilent(silent)
         self.errorUtil.setSilent(silent)
+    
+    def setJustPrint(self, justPrint):
+        self.justPrint = justPrint
 
     # Set the maximum number of threads used to evaluate targets.
     # Note, however, that use of a recursive build-system may cause more than
@@ -270,7 +274,9 @@ class MakeUtil:
             try:
                 status = 0
                 
-                if not "_BUILTIN_SHELL" in macros:
+                if self.justPrint:
+                    print(command)
+                elif not "_BUILTIN_SHELL" in macros:
                     status = subprocess.run(command, shell=True, check=True).returncode
                 else:
                     defaultFlags = []

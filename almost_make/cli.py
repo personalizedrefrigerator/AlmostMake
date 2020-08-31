@@ -10,7 +10,7 @@ ARGUMENT_MAPPINGS = \
     'h': "help",
     'k': 'keep-going',
     'p': 'print-expanded',
-#   'n': 'just-print', # To-do
+    'n': 'just-print',
     'f': 'file',
     'C': 'directory',
     's': 'silent',
@@ -42,6 +42,9 @@ def printHelp():
     print("\t File to parse (default is Makefile).")
     cprint("    -k", FORMAT_COLORS['GREEN'])
     print("\t\t Keep going if errors are encountered.")
+    cprint("    -n, --just-print", FORMAT_COLORS['GREEN'])
+    print("\t Just print commands to be run, without evaluating (print commands, don't send them to the shell). ")
+    cprint("Be aware that $(shell ...) macros are still evaluated. This option only applies to individual commands.")
     cprint("    -p", FORMAT_COLORS['GREEN'])
     print("\t\t Rather than finding targets, print the makefile, with top-level targets expanded.")
     cprint("    -C dir", FORMAT_COLORS['GREEN'])
@@ -170,6 +173,9 @@ def main(args=sys.argv):
             except ValueError as ex:
                 makeUtil.errorUtil.reportError("Invalid argument to --jobs. This must be an integer.")
             makeUtil.setMaxJobs(jobs)
+
+        if 'just-print' in args:
+            makeUtil.setJustPrint(True)
 
         if 'file' in args:
             fileName = args['file']
