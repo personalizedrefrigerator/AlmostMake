@@ -162,12 +162,14 @@ def collapse(clustered):
 # system's shell. This is useful in systems that support, say,
 # the '|' operator, but the file-descriptor piping method fails.
 # At the time of this writing, this was the case with iOS's a-Shell.
-def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=None):
+# If [blocking] is false, do not block and return a Popen object.
+def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=None, blocking=True):
     if "2>&1" in flags:
         stderr = stdout
 
+    # Force non-blocking.
     if "&" in flags:
-        print("& flag not implemented!")
+        blocking = False
         
     if len(args) == 0:
         return 0
@@ -187,14 +189,17 @@ def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=No
             return 0
         return result
     
-    proc = subprocess.run(args, stdin=stdin, stdout=stdout, stderr=stderr, shell=sysShell, close_fds=False)
-    return proc.returncode
+    if blocking:
+        proc = subprocess.run(args, stdin=stdin, stdout=stdout, stderr=stderr, shell=sysShell, close_fds=False)
+        return proc.returncode
+    else:
+        return subprocess.Popen(args, stdin=stdin, stdout=stdout, stderr=stderr, shell=sysShell, close_fds=False)
 
-def evalCommand(orderedCommand, customCommands={}, flags=[], stdin=None, stdout=None, stderr=None):
+def evalCommand(orderedCommand, customCommands={}, flags=[], stdin=None, stdout=None, stderr=None, blocking=True):
     if len(orderedCommand) == 0:
         return False
     if type(orderedCommand[0]) == str:
-        return rawRun(orderedCommand, customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr)
+        return rawRun(orderedCommand, customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr, blocking=blocking)
     elif len(orderedCommand) == 2:
         recurseFlags = flags.copy()
         flags.append(orderedCommand)
@@ -214,7 +219,7 @@ def evalCommand(orderedCommand, customCommands={}, flags=[], stdin=None, stdout=
         if operator == '|':
             fdIn, fdOut = os.pipe()
 
-            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=fdOut, stderr=stderr)
+            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=fdOut, stderr=stderr, blocking = False)
             os.close(fdOut)
 
             # Run right with given stdin, stdout.
