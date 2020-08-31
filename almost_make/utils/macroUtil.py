@@ -22,6 +22,7 @@ class MacroUtil:
     definitionConditions = [] # A list of additional preconditions for the definition of a macro.
     lazyEvalConditions = []   # Don't expand macros on a line when in define & expand mode if any of these conditions are true.
     errorLogger = errorUtil.ErrorUtil()
+    
     def setStopOnError(self, stopOnErr):
         self.errorLogger.setStopOnError(stopOnErr)
     def setSilent(self, silent):
@@ -58,13 +59,9 @@ class MacroUtil:
 
     # Get whether expandAndDefineMacros should
     # evaluate the contents of a line, or allow it to
-    # be done later. [checkConditions] allows case-by-case
-    # overriding of the default conditions.
-    def shouldLazyEval(text, checkConditions=LAZY_EVAL_CONDITIONS):
-        if checkConditions == None:
-            checkConditions = LAZY_EVAL_CONDITIONS
-        
-        for condition in checkConditions:
+    # be done later. Add conditions via addLazyEvalCondition.
+    def shouldLazyEval(self, text):
+        for condition in self.lazyEvalConditions:
             if condition(text):
                 return True
         return False
@@ -183,12 +180,12 @@ class MacroUtil:
             if buffFromMacro:
                 buffFromMacro = False
                 buff = buff.lstrip()
-                words = buff.split(SPACE_CHARS)
+                words = SPACE_CHARS.split(buff)
 
                 if buff in macros:
                     buff = macros[buff]
                 elif words[0] in self.macroCommands:
-                    buff = MACRO_COMMANDS[words[0]](" ".join(words[1:]), macros)
+                    buff = self.macroCommands[words[0]](" ".join(words[1:]), macros)
                 else:
                     self.errorLogger.reportError("Undefined macro %s. Context: %s." % (buff, line))
 

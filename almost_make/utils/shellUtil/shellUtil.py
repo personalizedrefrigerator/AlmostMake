@@ -109,7 +109,7 @@ def getCustomCommands(macros):
 def evalScript(text, macroUtil, macros={}, resetCwd = True, defaultFlags = []):
     oldCwd = os.path.abspath(os.getcwd())
     
-    text, macros = macroUtil.expandAndDefineMacros(text, macros, {}, {})
+    text, macros = macroUtil.expandAndDefineMacros(text, macros)
     
     result = (runner.runCommand(text, getCustomCommands(macros), defaultFlags), macros)
     

@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 import sys, os.path
 from almost_make.utils.printUtil import *
-import almost_make.utils.makeUtil as makeUtil
-import almost_make.utils.macroUtil as macroUtil
+import almost_make.utils.makeUtil as makeUtility
+import almost_make.utils.macroUtil as macroUtility
 from almost_make.utils.argsUtil import *
 
 ARGUMENT_MAPPINGS = \
@@ -133,6 +133,9 @@ def main(args=sys.argv):
     elif 'version' in args:
         printVersion()
     else:
+        macroUtil = macroUtility.MacroUtil()
+        makeUtil = makeUtility.MakeUtil()
+
         fileName = 'Makefile'
         targets = []
         
