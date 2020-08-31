@@ -6,7 +6,11 @@
 #  - GNUMake: https://www.gnu.org/software/make/manual/make.html Accessed August 22, 2020
 #  - BSDMake:  http://khmere.com/freebsd_book/html/ch01.html Accessed Aug 22 2020 
 
-import re, sys, os, subprocess, time
+import re, sys, os, subprocess, time, threading
+# from concurrent.futures import ThreadPoolExecutor # We are **not** using this because adding an 
+#                                                   # executor to the queue when in an executed thread can cause deadlock! See 
+#                                                   # https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor
+
 from almost_make.utils.printUtil import *
 import almost_make.utils.macroUtil as macroUtility
 import almost_make.utils.shellUtil.shellUtil as shellUtility
@@ -27,6 +31,10 @@ class MakeUtil:
     recipeStartChar = '\t'
     silent = False
     macroCommands = {}
+    maxJobs = 1
+    currentJobs = 1 # Number of currently running jobs...
+    jobLock = threading.Lock()
+    pending = {} # Set of pending jobs.
 
     def __init__(self):
         self.macroCommands["shell"] = lambda code, macros: os.popen(code).read().rstrip(' \n\r\t')
@@ -46,6 +54,12 @@ class MakeUtil:
         self.silent = silent
         self.macroUtil.setSilent(silent)
         self.errorUtil.setSilent(silent)
+
+    # Set the maximum number of threads used to evaluate targets.
+    # Note, however, that use of a recursive build-system may cause more than
+    # this number of jobs to be used/created.
+    def setMaxJobs(self, maxJobs):
+        self.maxJobs = maxJobs
 
     # Get a tuple.
     # First item: a map from target names
@@ -106,7 +120,7 @@ class MakeUtil:
 
     # Generate [target] if necessary. Returns
     # True if generated, False if not necessary.
-    def satisfyDependencies(self, target, targets, macros, maxJobs=1):
+    def satisfyDependencies(self, target, targets, macros):
         target = target.strip()
         if not target in targets:
             # Can we generate a recipe?
@@ -206,10 +220,35 @@ class MakeUtil:
         if not runRecipe:
             return False
         
+        pendingJobs = []
+
         for dep in deps:
     #        print("Checking dep %s; %s" % (dep, str(needGenerate(dep))))
             if dep.strip() != "" and needGenerate(dep):
-                self.satisfyDependencies(dep, targets, macros, maxJobs)
+                self.jobLock.acquire()
+                if self.currentJobs < self.maxJobs and not dep in self.pending:
+                    self.currentJobs += 1
+                    self.jobLock.release()
+
+                    self.pending[dep] = threading.Thread(target=self.satisfyDependencies, args=(dep, targets, macros))
+
+                    pendingJobs.append(dep)
+                else:
+                    self.jobLock.release()
+                    self.satisfyDependencies(dep, targets, macros)
+
+        for job in pendingJobs:
+            self.pending[job].start()
+
+        # Wait for all pending jobs to complete.
+        for job in pendingJobs:
+            self.pending[job].join()
+            self.pending[job] = None
+
+            self.jobLock.acquire()
+            self.currentJobs -= 1
+            self.jobLock.release()
+
         # Here, we know that
         # (1) all dependencies are satisfied
         # (2) we need to run each command in recipe.
@@ -251,7 +290,7 @@ class MakeUtil:
     # Run commands specified to generate
     # dependencies of target by the contents
     # of the makefile given in contents.
-    def runMakefile(self, contents, target = '', defaultMacros={ "MAKE": "make" }, overrideMacros={}, jobs=1):
+    def runMakefile(self, contents, target = '', defaultMacros={ "MAKE": "make" }, overrideMacros={}):
         contents, macros = self.macroUtil.expandAndDefineMacros(contents, defaultMacros)
         targetRecipes, targets = self.getTargetActions(contents)
 
@@ -262,7 +301,7 @@ class MakeUtil:
         for macroName in overrideMacros:
             macros[macroName] = overrideMacros[macroName]
 
-        satisfied = self.satisfyDependencies(target, targetRecipes, macros, jobs)
+        satisfied = self.satisfyDependencies(target, targetRecipes, macros)
 
         if not satisfied and not self.silent:
             print("Not hing to be done for target ``%s``." % target)

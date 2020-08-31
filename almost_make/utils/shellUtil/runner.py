@@ -162,10 +162,9 @@ def collapse(clustered):
 # system's shell. This is useful in systems that support, say,
 # the '|' operator, but the file-descriptor piping method fails.
 # At the time of this writing, this was the case with iOS's a-Shell.
-def rawRun(args, customCommands={}, flags=[]):
-    stderrOut = None # Default
+def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=None):
     if "2>&1" in flags:
-        out = subprocess.STDOUT
+        stderr = stdout
 
     if "&" in flags:
         print("& flag not implemented!")
@@ -178,7 +177,7 @@ def rawRun(args, customCommands={}, flags=[]):
     command = args[0].strip()
 
     if command in customCommands:
-        result = customCommands[command](args, flags)
+        result = customCommands[command](args, flags, stdin, stdout, stderr)
         
         if type(result) == bool:
             if result:
@@ -188,19 +187,19 @@ def rawRun(args, customCommands={}, flags=[]):
             return 0
         return result
     
-    proc = subprocess.run(args, stderr=stderrOut, shell=sysShell)
+    proc = subprocess.run(args, stdin=stdin, stdout=stdout, stderr=stderr, shell=sysShell, close_fds=False)
     return proc.returncode
 
-def evalCommand(orderedCommand, customCommands={}, flags=[]):
+def evalCommand(orderedCommand, customCommands={}, flags=[], stdin=None, stdout=None, stderr=None):
     if len(orderedCommand) == 0:
         return False
     if type(orderedCommand[0]) == str:
-        return rawRun(orderedCommand, customCommands, flags)
+        return rawRun(orderedCommand, customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr)
     elif len(orderedCommand) == 2:
         recurseFlags = flags.copy()
         flags.append(orderedCommand)
 
-        return evalCommand(orderedCommand[0], customCommands, recurseFlags)
+        return evalCommand(orderedCommand[0], customCommands, recurseFlags, stdin=stdin, stdout=stdout, stderr=stderr)
     elif len(orderedCommand) == 3:
         operator = orderedCommand[1]
 
@@ -210,67 +209,43 @@ def evalCommand(orderedCommand, customCommands={}, flags=[]):
             runFlags = flags.copy()
             runFlags.append(SYSTEM_SHELL) # Use the system's shell to interpret.
             
-            return rawRun(collapse(orderedCommand), customCommands, runFlags)
+            return rawRun(collapse(orderedCommand), customCommands, runFlags, stdin=stdin, stdout=stdout, stderr=stderr)
 
         if operator == '|':
-            # Cache file descriptors that point to stdin and stdout
-            stdinSave = os.dup(0)
-            stdoutSave = os.dup(1)
-
             fdIn, fdOut = os.pipe()
-            
-            # Point stdout to fdIn.
-            os.dup2(fdOut, 1)
+
+            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=fdOut, stderr=stderr)
             os.close(fdOut)
 
-            left = evalCommand(orderedCommand[0], customCommands, flags)
-
-            # Point stdout to stdoutSave.
-            os.dup2(stdoutSave, 1)
-            os.close(stdoutSave)
-
-            # Make stdin point to fdOut.
-            os.dup2(fdIn, 0)
-            os.close(fdIn)
-
             # Run right with given stdin, stdout.
-            right = evalCommand(orderedCommand[2], customCommands, flags)
+            right = evalCommand(orderedCommand[2], customCommands, flags, stdin=fdIn, stdout=stdout, stderr=stderr)
             
-            # Restore stdin
-            os.dup2(stdinSave, 0)
-            os.close(stdinSave)
+            os.close(fdIn)
 
             return right
         elif operator == '>':
             outfd = os.open(os.path.abspath(" ".join(orderedCommand[2])), os.O_WRONLY | os.O_CREAT, mode=PIPE_OUT_PERMISSIONS)
-            stdoutSave = os.dup(1)
-
-            # Point stdout to outfd.
-            os.dup2(outfd, 1)
-            os.close(outfd)
 
             # We need to wait for the process to finish.
             if '&' in flags:
                 flags = [ i for i in flags if i != '&' ]
 
-            left = evalCommand(orderedCommand[0], customCommands, flags)
+            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=outfd, stderr=stderr)
 
-            # Point stdout back to our saved file descriptor.
-            os.dup2(stdoutSave, 1)
-            os.close(stdoutSave)
+            os.close(outfd)
 
             return left
         elif operator == '||' or operator == '&&':
-            left = evalCommand(orderedCommand[0], customCommands, flags)
+            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr)
 
             if left and (operator == '||' and left != 0 or operator == '&&' and left == 0):
-                right = evalCommand(orderedCommand[2], customCommands, flags)
+                right = evalCommand(orderedCommand[2], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr)
 
                 return right
             return left
         elif operator == ';':
-            left = evalCommand(orderedCommand[0], customCommands, flags)
-            right = evalCommand(orderedCommand[2], customCommands, flags)
+            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr)
+            right = evalCommand(orderedCommand[2], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr)
 
             if left != 0:
                 return left

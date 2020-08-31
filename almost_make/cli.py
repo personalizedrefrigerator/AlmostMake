@@ -14,7 +14,8 @@ ARGUMENT_MAPPINGS = \
     'f': 'file',
     'C': 'directory',
     's': 'silent',
-    'b': 'built-in-shell'
+    'b': 'built-in-shell',
+    'j': 'jobs'
 }
 
 # Don't save these when we recurse...
@@ -45,6 +46,8 @@ def printHelp():
     print("\t\t Rather than finding targets, print the makefile, with top-level targets expanded.")
     cprint("    -C dir", FORMAT_COLORS['GREEN'])
     print("\t Switch to directory, dir, before running make. ")
+    cprint("    -j, --jobs", FORMAT_COLORS['GREEN'])
+    print("\t Maximum number of jobs (e.g. almake -j 8). ")
     cprint("    -s, --silent", FORMAT_COLORS['GREEN'])
     print(" In most cases, don't print output.")
     cprint("    -b, --built-in-shell", FORMAT_COLORS['GREEN'])
@@ -84,7 +87,7 @@ def printHelp():
     	  "always use its built-in shell, rather than the system shell.")
 
 def printVersion():
-    print("AlmostMake v0.0.10")
+    print("AlmostMake v0.0.11")
     print("    This software is licensed to you under the BSD-3-Clause License, as printed below:")
     print("""
 BSD 3-Clause License
@@ -159,6 +162,14 @@ def main(args=sys.argv):
         
         if 'silent' in args:
             makeUtil.setSilent(True)
+
+        if 'jobs' in args:
+            jobs = 1
+            try:
+                jobs = int(args['jobs'])
+            except ValueError as ex:
+                makeUtil.errorUtil.reportError("Invalid argument to --jobs. This must be an integer.")
+            makeUtil.setMaxJobs(jobs)
 
         if 'file' in args:
             fileName = args['file']

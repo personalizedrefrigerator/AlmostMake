@@ -33,11 +33,11 @@ def filterArgs(args, minimumLength):
 
 CUSTOM_COMMANDS = \
 {
-    "cd": lambda args, flags: filterArgs(args, 2) and os.chdir(os.path.abspath(args[1])),
-    "exit": lambda args, flags: filterArgs(args, 1) and sys.exit((len(args) > 1 and args[1]) or 0)
+    "cd": lambda args, flags, stdin, stdout, stderr: filterArgs(args, 2) and os.chdir(os.path.abspath(args[1])),
+    "exit": lambda args, flags, stdin, stdout, stderr: filterArgs(args, 1) and sys.exit((len(args) > 1 and args[1]) or 0)
 }
 
-def customLs(args):
+def customLs(args, stdin, stdout, stderr):
     listInDirectory = os.path.abspath(".")
     
     if len(args) > 1:
@@ -45,12 +45,12 @@ def customLs(args):
     fileList = os.listdir(listInDirectory)
     fileList.sort()
     
-    print(" ".join(fileList))
+    cprint(" \n".join(fileList), file=stdout)
 
-def customPwd(args):
-    print(os.path.abspath("."))
+def customPwd(args, stdin, stdout, stderr):
+    cprint(os.path.abspath("."), file=stdout)
 
-def customEcho(args):
+def customEcho(args, stdin, stdout, stderr):
     if len(args) == 1:
         return 0
     
@@ -89,7 +89,7 @@ def customEcho(args):
     if doEscapes:
         toPrint = escapeParser.parseEscapes(toPrint)
     
-    print(toPrint, end=printEnd)
+    cprint(toPrint + printEnd, file=stdout)
 
 # Get a set of custom commands that can be used.
 def getCustomCommands(macros):
@@ -97,12 +97,15 @@ def getCustomCommands(macros):
     
     for key in CUSTOM_COMMANDS:
         result[key] = CUSTOM_COMMANDS[key]
+
+    def addCustomCommand(alias, minArgs, fn):
+        result[alias] = lambda args, flags, stdin, stdout, stderr: filterArgs(args, minArgs) and fn(args, stdin, stdout, stderr)
     
     if "_CUSTOM_BASE_COMMANDS" in macros:
-        result["ls"] = lambda args, flags: filterArgs(args, 1) and customLs(args)
+        addCustomCommand("ls", 1, customLs)
         result["dir"] = result["ls"]
-        result["pwd"] = lambda args, flags: filterArgs(args, 1) and customPwd(args)
-        result["echo"] = lambda args, flags: filterArgs(args, 2) and customEcho(args)
+        addCustomCommand("pwd", 1, customPwd)
+        addCustomCommand("echo", 2, customEcho)
     
     return result
 
