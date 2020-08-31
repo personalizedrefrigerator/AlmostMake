@@ -4,9 +4,14 @@
 
 clean: 
 
-check: 
+check: bracketCheck
 	$(MAKE) -C subdir1 -n | grep "echo"
 	@echo PASS | grep PASS
 
+A := F
+A := ${A}oo
 
-.PHONY: check clean
+bracketCheck:
+	echo ${A} | grep "Foo"
+
+.PHONY: check clean bracketCheck

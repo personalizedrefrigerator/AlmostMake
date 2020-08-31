@@ -11,7 +11,7 @@ MACRO_NAME_EXP = "[a-zA-Z0-9_\\@\\^\\<]"
 MACRO_NAME_CHAR_REGEXP = re.compile(MACRO_NAME_EXP)
 MACRO_SET_REGEXP = re.compile("\\s*([:+?]?)\\=\\s*")
 IS_MACRO_DEF_REGEXP = re.compile("^%s+\\s*[:+?]?\\=.*" % MACRO_NAME_EXP, re.IGNORECASE)
-IS_MACRO_INVOKE_REGEXP = re.compile(".*(?:[\\$])[\\(]?%s+[\\)]?" % MACRO_NAME_EXP)
+IS_MACRO_INVOKE_REGEXP = re.compile(".*(?:[\\$])[\\(\\{]?%s+[\\)\\}]?" % MACRO_NAME_EXP)
 SPACE_CHARS = re.compile("\\s")
 
 # Constant(s)
@@ -108,8 +108,8 @@ class MacroUtil:
     def stripComments(self, line):
         singleLevel = { '"': False, "\'": False }
         inSomeSingleLevel = False
-        multiLevelOpen = { '(': 0 }
-        multiLevelClose = { ')': '(' }
+        multiLevelOpen = { '(': 0, '{': 0 }
+        multiLevelClose = { ')': '(', '}': '{' }
         escaped = False
         trimToIndex = 0
 
@@ -162,9 +162,9 @@ class MacroUtil:
             elif c == '$' and parenLevel == 0 and inMacro and buff == '$':
                 inMacro = False
                 expanded += '$'
-            elif c == '(' and inMacro:
+            elif (c == '(' or c == '{') and inMacro:
                 parenLevel += 1
-            elif c == ')' and inMacro:
+            elif (c == ')' or c == '}') and inMacro:
                 parenLevel -= 1
 
                 if parenLevel == 0:
