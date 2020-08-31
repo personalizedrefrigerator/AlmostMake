@@ -1,4 +1,5 @@
 import setuptools
+from almost_make.version import VERSION_STRING
 
 readmeFile = open("README.md", "r")
 longDescription = readmeFile.read()
@@ -6,7 +7,7 @@ readmeFile.close()
 
 setuptools.setup(
     name="almost_make",
-    version="0.0.11",
+    version=VERSION_STRING,
     author="Henry Heino",
     author_email="personalizedrefrigerator@gmail.com",
     description="A makefile parser",
@@ -22,7 +23,8 @@ setuptools.setup(
     ],
     entry_points={
         "console_scripts": [
-            "almake = almost_make.cli:main"
+            "almake = almost_make.cli:main",
+            "almake_shell = almost_make.utils.shellUtil.interactiveShell:main"
         ]
     },
     python_requires=">=3.7"

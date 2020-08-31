@@ -25,16 +25,16 @@ directory.""",
 Print the current working directory's absolute path."""
 }
 
-def filterArgs(args, minimumLength):
+def filterArgs(args, minimumLength, stdout):
     if len(args) < minimumLength or "--help" in args:
-        print(QUICK_HELP[args[0]])
+        cprint(QUICK_HELP[args[0]] + '\n', file=stdout)
         return False
     return True
 
 CUSTOM_COMMANDS = \
 {
-    "cd": lambda args, flags, stdin, stdout, stderr: filterArgs(args, 2) and os.chdir(os.path.abspath(args[1])),
-    "exit": lambda args, flags, stdin, stdout, stderr: filterArgs(args, 1) and sys.exit((len(args) > 1 and args[1]) or 0)
+    "cd": lambda args, flags, stdin, stdout, stderr: filterArgs(args, 2, stdout) and os.chdir(os.path.abspath(args[1])),
+    "exit": lambda args, flags, stdin, stdout, stderr: filterArgs(args, 1, stdout) and sys.exit((len(args) > 1 and args[1]) or 0)
 }
 
 def customLs(args, stdin, stdout, stderr):
@@ -45,10 +45,10 @@ def customLs(args, stdin, stdout, stderr):
     fileList = os.listdir(listInDirectory)
     fileList.sort()
     
-    cprint(" \n".join(fileList), file=stdout)
+    cprint(" \n".join(fileList) + '\n', file=stdout)
 
 def customPwd(args, stdin, stdout, stderr):
-    cprint(os.path.abspath("."), file=stdout)
+    cprint(os.path.abspath(".") + '\n', file=stdout)
 
 def customEcho(args, stdin, stdout, stderr):
     if len(args) == 1:
@@ -99,7 +99,7 @@ def getCustomCommands(macros):
         result[key] = CUSTOM_COMMANDS[key]
 
     def addCustomCommand(alias, minArgs, fn):
-        result[alias] = lambda args, flags, stdin, stdout, stderr: filterArgs(args, minArgs) and fn(args, stdin, stdout, stderr)
+        result[alias] = lambda args, flags, stdin, stdout, stderr: filterArgs(args, minArgs, stdout) and fn(args, stdin, stdout, stderr)
     
     if "_CUSTOM_BASE_COMMANDS" in macros:
         addCustomCommand("ls", 1, customLs)

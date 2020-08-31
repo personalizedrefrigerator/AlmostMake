@@ -2,7 +2,7 @@
 
 import cmd, os, sys
 import almost_make.utils.shellUtil.shellUtil as shell
-import almost_make.utils.macroUtil as macroUtil
+import almost_make.utils.macroUtil as macroUtility
 import almost_make.utils.shellUtil.escapeParser as escapeParser
 from almost_make.utils.printUtil import *
 
@@ -13,16 +13,17 @@ from almost_make.utils.printUtil import *
 class SimpleShell(cmd.Cmd):
     prompt = '$ '
     command = ''
+    macroUtil = macroUtility.MacroUtil()
     
     def __init__(self, useBaseCommands=True, defaultFlags={}):
         self.updatePrompt()
-        self.macros = macroUtil.getDefaultMacros()
+        self.macros = self.macroUtil.getDefaultMacros()
         self.defaultFlags = defaultFlags
         
         if useBaseCommands:
         	self.macros["_CUSTOM_BASE_COMMANDS"] = True # Use custom base commands for testing.
         
-        macroUtil.setStopOnError(False)
+        self.macroUtil.setStopOnError(False)
 
         
         cmd.Cmd.__init__(self)
@@ -57,7 +58,7 @@ class SimpleShell(cmd.Cmd):
             self.command += line
         
         try:
-            result, self.macros = shell.evalScript(self.command, self.macros, False, self.defaultFlags)
+            result, self.macros = shell.evalScript(self.command, self.macroUtil, self.macros, False, self.defaultFlags)
             
             if result != 0:
                 cprint("Warning:", FORMAT_COLORS["YELLOW"])
@@ -70,7 +71,7 @@ class SimpleShell(cmd.Cmd):
         
         self.updatePrompt()
 
-def main(baseCommands=True, flags=[ 'use-system-pipe' ]):
+def main(baseCommands=True, flags=[]):
     SimpleShell(baseCommands, flags).cmdloop()
 
 if __name__ == "__main__":

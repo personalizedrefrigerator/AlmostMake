@@ -4,6 +4,7 @@ from almost_make.utils.printUtil import *
 import almost_make.utils.makeUtil as makeUtility
 import almost_make.utils.macroUtil as macroUtility
 from almost_make.utils.argsUtil import *
+from almost_make import version
 
 ARGUMENT_MAPPINGS = \
 {
@@ -89,43 +90,6 @@ def printHelp():
     	  "setting MAKEFLAGS to --built-in-shell causes almake to " +
     	  "always use its built-in shell, rather than the system shell.")
 
-def printVersion():
-    print("AlmostMake v0.0.11")
-    print("    This software is licensed to you under the BSD-3-Clause License, as printed below:")
-    print("""
-BSD 3-Clause License
-
-Copyright (c) 2020, Henry Heino
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its
-   contributors may be used to endorse or promote products derived from
-   this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-""")
-    print("------------------------")
-    print("This software should be available on GitHub! If you encounter issues or want to add functionality, submit issues and pull requests through https://github.com/personalizedrefrigerator/AlmostMake")
-
 # On commandline run...
 def main(args=sys.argv):
     args = parseArgs(args, ARGUMENT_MAPPINGS)
@@ -137,7 +101,7 @@ def main(args=sys.argv):
     if 'help' in args:
         printHelp()
     elif 'version' in args:
-        printVersion()
+        version.printVersion()
     else:
         macroUtil = macroUtility.MacroUtil()
         makeUtil = makeUtility.MakeUtil()
