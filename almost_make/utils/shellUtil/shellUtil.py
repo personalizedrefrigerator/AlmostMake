@@ -33,24 +33,40 @@ def filterArgs(args, minimumLength, stdout):
 
 CUSTOM_COMMANDS = \
 {
-    "cd": lambda args, flags, stdin, stdout, stderr: filterArgs(args, 2, stdout) and os.chdir(os.path.abspath(args[1])),
-    "exit": lambda args, flags, stdin, stdout, stderr: filterArgs(args, 1, stdout) and sys.exit((len(args) > 1 and args[1]) or 0)
+    "exit": lambda args, flags, stdin, stdout, stderr, state: filterArgs(args, 1, stdout) and sys.exit((len(args) > 1 and args[1]) or 0)
 }
 
-def customLs(args, stdin, stdout, stderr):
-    listInDirectory = os.path.abspath(".")
+def customLs(args, stdin, stdout, stderr, state):
+    listInDirectory = os.path.abspath(state.cwd or '.')
     
     if len(args) > 1:
-        listInDirectory = os.path.abspath(args[1])
+        listInDirectory = os.path.abspath(os.path.join(listInDirectory, args[1]))
     fileList = os.listdir(listInDirectory)
     fileList.sort()
     
     cprint(" \n".join(fileList) + '\n', file=stdout)
 
-def customPwd(args, stdin, stdout, stderr):
-    cprint(os.path.abspath(".") + '\n', file=stdout)
+def customPwd(args, stdin, stdout, stderr, state):
+    cprint(os.path.abspath(state.cwd or '.') + '\n', file=stdout)
 
-def customEcho(args, stdin, stdout, stderr):
+def customCd(args, stdin, stdout, stderr, state):
+    oldCwd = state.cwd
+
+    if not state.cwd:
+        state.cwd = os.path.abspath(os.path.expanduser(args[1]))
+    else:
+        state.cwd = os.path.abspath(os.path.expanduser(os.path.join(state.cwd, os.path.expanduser(args[1]))))
+    
+    result = True
+
+    if not os.path.exists(state.cwd):
+        cprint("cd: " + str(state.cwd) + ": No such file or directory\n", file=stderr)
+        state.cwd = oldCwd
+        result = False
+    
+    return result
+
+def customEcho(args, stdin, stdout, stderr, state):
     if len(args) == 1:
         return 0
     
@@ -99,8 +115,10 @@ def getCustomCommands(macros):
         result[key] = CUSTOM_COMMANDS[key]
 
     def addCustomCommand(alias, minArgs, fn):
-        result[alias] = lambda args, flags, stdin, stdout, stderr: filterArgs(args, minArgs, stdout) and fn(args, stdin, stdout, stderr)
+        result[alias] = lambda args, flags, stdin, stdout, stderr, state: filterArgs(args, minArgs, stdout) and fn(args, stdin, stdout, stderr, state)
     
+    addCustomCommand("cd", 2, customCd)
+
     if "_CUSTOM_BASE_COMMANDS" in macros:
         addCustomCommand("ls", 1, customLs)
         result["dir"] = result["ls"]
@@ -110,14 +128,13 @@ def getCustomCommands(macros):
     return result
 
 def evalScript(text, macroUtil, macros={}, resetCwd = True, defaultFlags = []):
-    oldCwd = os.path.abspath(os.getcwd())
-    
     text, macros = macroUtil.expandAndDefineMacros(text, macros)
+    state = runner.ShellState()
     
-    result = (runner.runCommand(text, getCustomCommands(macros), defaultFlags), macros)
+    result = (runner.runCommand(text, getCustomCommands(macros), defaultFlags, state), macros)
     
-    if resetCwd:
-        os.chdir(oldCwd)
+    if not resetCwd:
+        os.chdir(state.cwd or '.')
     
     return result
 

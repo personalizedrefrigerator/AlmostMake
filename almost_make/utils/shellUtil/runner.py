@@ -12,6 +12,9 @@ SPACE_CHARS = re.compile("\\s")
 SYSTEM_SHELL = "system-shell"
 USE_SYSTEM_PIPE = "use-system-pipe"
 
+class ShellState:
+    cwd = None
+
 # Get the number of [char] at the beginning of [text].
 def getStartingCount(text, char):
     pos = 0
@@ -163,13 +166,16 @@ def collapse(clustered):
 # the '|' operator, but the file-descriptor piping method fails.
 # At the time of this writing, this was the case with iOS's a-Shell.
 # If [blocking] is false, do not block and return a Popen object.
-def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=None, blocking=True):
+def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=None, blocking=True, state=ShellState()):
     if "2>&1" in flags:
         stderr = stdout
+
+    returnOverride = False
 
     # Force non-blocking.
     if "&" in flags:
         blocking = False
+        returnOverride = True
         
     if len(args) == 0:
         return 0
@@ -179,51 +185,56 @@ def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=No
     command = args[0].strip()
 
     if command in customCommands:
-        result = customCommands[command](args, flags, stdin, stdout, stderr)
+        result = customCommands[command](args, flags, stdin, stdout, stderr, state)
         
         if type(result) == bool:
             if result:
                 return 0
             return 1
-        if result is None:
+        if result == None:
             return 0
         return result
-    
+
     if blocking:
-        proc = subprocess.run(args, stdin=stdin, stdout=stdout, stderr=stderr, shell=sysShell, close_fds=False)
+        proc = subprocess.run(args, stdin=stdin, stdout=stdout, stderr=stderr, shell=sysShell, close_fds=False, cwd=state.cwd)
         return proc.returncode
     else:
-        return subprocess.Popen(args, stdin=stdin, stdout=stdout, stderr=stderr, shell=sysShell, close_fds=False)
+        result = subprocess.Popen(args, stdin=stdin, stdout=stdout, stderr=stderr, shell=sysShell, close_fds=False, cwd=state.cwd)
 
-def evalCommand(orderedCommand, customCommands={}, flags=[], stdin=None, stdout=None, stderr=None, blocking=True):
+        if returnOverride:
+            return 0
+        else:
+            return result
+
+def evalCommand(orderedCommand, customCommands={}, flags=[], stdin=None, stdout=None, stderr=None, blocking=True, state=ShellState()):
     if len(orderedCommand) == 0:
         return False
     if type(orderedCommand[0]) == str:
-        return rawRun(orderedCommand, customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr, blocking=blocking)
+        return rawRun(orderedCommand, customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr, blocking=blocking, state=state)
     elif len(orderedCommand) == 2:
         recurseFlags = flags.copy()
         flags.append(orderedCommand)
 
-        return evalCommand(orderedCommand[0], customCommands, recurseFlags, stdin=stdin, stdout=stdout, stderr=stderr)
+        return evalCommand(orderedCommand[0], customCommands, recurseFlags, stdin=stdin, stdout=stdout, stderr=stderr, state=state)
     elif len(orderedCommand) == 3:
         operator = orderedCommand[1]
 
         # If we are to use the system's built-in pipe, we need to stop here.
         # Collapse the input and run it.
-        if USE_SYSTEM_PIPE in flags and (operator == '|' or operator == '>'):
+        if (operator == '|' or operator == '>') and USE_SYSTEM_PIPE in flags:
             runFlags = flags.copy()
             runFlags.append(SYSTEM_SHELL) # Use the system's shell to interpret.
             
-            return rawRun(collapse(orderedCommand), customCommands, runFlags, stdin=stdin, stdout=stdout, stderr=stderr)
+            return rawRun(collapse(orderedCommand), customCommands, runFlags, stdin=stdin, stdout=stdout, stderr=stderr, state=state)
 
         if operator == '|':
             fdIn, fdOut = os.pipe()
 
-            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=fdOut, stderr=stderr, blocking = False)
+            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=fdOut, stderr=stderr, blocking = False, state=state)
             os.close(fdOut)
 
             # Run right with given stdin, stdout.
-            right = evalCommand(orderedCommand[2], customCommands, flags, stdin=fdIn, stdout=stdout, stderr=stderr)
+            right = evalCommand(orderedCommand[2], customCommands, flags, stdin=fdIn, stdout=stdout, stderr=stderr, state=state)
             
             os.close(fdIn)
 
@@ -231,26 +242,22 @@ def evalCommand(orderedCommand, customCommands={}, flags=[], stdin=None, stdout=
         elif operator == '>':
             outfd = os.open(os.path.abspath(" ".join(orderedCommand[2])), os.O_WRONLY | os.O_CREAT, mode=PIPE_OUT_PERMISSIONS)
 
-            # We need to wait for the process to finish.
-            if '&' in flags:
-                flags = [ i for i in flags if i != '&' ]
-
-            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=outfd, stderr=stderr)
+            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=outfd, stderr=stderr, state=state)
 
             os.close(outfd)
 
             return left
         elif operator == '||' or operator == '&&':
-            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr)
+            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr, state=state)
 
-            if left and (operator == '||' and left != 0 or operator == '&&' and left == 0):
-                right = evalCommand(orderedCommand[2], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr)
+            if (operator == '||' and left != 0) or (operator == '&&' and left == 0):
+                right = evalCommand(orderedCommand[2], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr, state=state)
 
                 return right
             return left
         elif operator == ';':
-            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr)
-            right = evalCommand(orderedCommand[2], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr)
+            left = evalCommand(orderedCommand[0], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr, state=state)
+            right = evalCommand(orderedCommand[2], customCommands, flags, stdin=stdin, stdout=stdout, stderr=stderr, state=state)
 
             if left != 0:
                 return left
@@ -357,7 +364,7 @@ def filterSplitList(splitString):
 
 # Run the POSIX-like shell command [commandString]. Define
 # any additional commands through [customCommands].
-def runCommand(commandString, customCommands = {}, flags = []):
+def runCommand(commandString, customCommands = {}, flags = [], state=ShellState()):
     # Note: punctuation_chars=True causes shlex to cluster ();&| runs.
     #       For example, a && b -> ['a', '&&', 'b'], instead of ['a', '&', '&', 'b'].
     #       It also, however, clusters runs we don't want, like a &&& b -> ['a', '&&&', 'b'].
@@ -366,7 +373,7 @@ def runCommand(commandString, customCommands = {}, flags = []):
     portions = filterSplitList(shSplit(commandString))
     ordered = cluster(portions) # Convert ['a', '&&', 'b', '||', 'c'] into
                                 #       [[['a'], '&&', ['b']], '||', ['c']]
-    return evalCommand(ordered, customCommands, flags)
+    return evalCommand(ordered, customCommands, flags, state=state)
 
 if __name__ == "__main__":
     # Run directly? Run tests!
