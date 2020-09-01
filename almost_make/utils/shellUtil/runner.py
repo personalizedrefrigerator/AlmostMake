@@ -6,6 +6,8 @@
 import shlex, os, re
 import subprocess
 
+import almost_make.utils.shellUtil.globber as globber
+
 PRECEDENCE_LIST = [ '||', '&&', ";", '|', '>', '2>&1', '&' ]
 TWO_ARGUMENTS = { "||", "&&", ";", '|', '>' }
 PIPE_OUT_PERMISSIONS = 0o660
@@ -162,14 +164,6 @@ def collapse(clustered):
     
     return result.strip()
 
-# Glob a single argument, [arg], from the
-# perspective of [cwd].
-# See: https://www.gnu.org/software/bash/manual/bash.html#Filename-Expansion
-def glob(arg, cwd):
-    inQuote = None
-
-    # To-do!!!
-
 # Glob all arguments in args, excluding the first and 
 # quoted arguments.
 def globArgs(args, state):
@@ -177,7 +171,7 @@ def globArgs(args, state):
     result = []
     
     for arg in args:
-        result.append(glob(arg, cwd))
+        result.extend(globber.glob(arg, cwd))
     
     return result
 
@@ -205,7 +199,9 @@ def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=No
     
     sysShell = SYSTEM_SHELL in flags or None
 
-    # args = globArgs(args, state)
+    if not sysShell:
+        args = globArgs(args, state)
+    
     command = args[0].strip()
 
     if command in customCommands:
@@ -449,6 +445,6 @@ if __name__ == "__main__":
     assertEql(collapse([ "a", "2>&1", '|', 'c' ]), "a 2>&1 | c", "Other separators.")
     assertEql(filterSplitList(shSplit('TEST_MACRO="Testing1234=:= := This **should ** work! "')),
         ['TEST_MACRO="Testing1234=:= := This **should ** work! "'], "Quoting that starts in the middle?")
-    # assertEql(globArgs(['*.*'], ShellState()), ['*.*'], "Test identity globbing")
-    # assertEql(globArgs(['a test', 'of some things', 'that should work'], ShellState()), ['a test', 'of some things', 'that should work'], "Test identity globbing")
+    assertEql(globArgs(['*.*'], ShellState()), ['*.*'], "Test identity globbing")
+    assertEql(globArgs(['a test', 'of some things', 'that should work'], ShellState()), ['a test', 'of some things', 'that should work'], "Test identity globbing")
     
