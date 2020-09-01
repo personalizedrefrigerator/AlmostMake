@@ -44,6 +44,7 @@ clean:
 test: install
 	cd almost_make/tests; python3 ../cli.py
 	cd almost_make/utils/shellUtil; python3 runner.py
+	cd almost_make/utils/shellUtil; python3 shellUtil.py
 
 testEnv:
 	python3 -m venv $@

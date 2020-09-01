@@ -16,7 +16,8 @@ SYSTEM_SHELL = "system-shell"
 USE_SYSTEM_PIPE = "use-system-pipe"
 
 class ShellState:
-    cwd = None
+    def __init__(self):
+        self.cwd = os.getcwd()
 
 # Get the number of [char] at the beginning of [text].
 def getStartingCount(text, char):

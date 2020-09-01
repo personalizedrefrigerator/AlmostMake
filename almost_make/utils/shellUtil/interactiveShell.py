@@ -62,7 +62,9 @@ class SimpleShell(cmd.Cmd):
             self.command += line
         
         try:
-            result, self.macros = shell.evalScript(self.command, self.macroUtil, self.macros, False, self.defaultFlags)
+            state = runner.ShellState()
+            result, self.macros = shell.evalScript(self.command, self.macroUtil, self.macros, self.defaultFlags, state=state)
+            os.chdir(state.cwd or '.')
             
             if result != 0:
                 cprint("Warning:", FORMAT_COLORS["YELLOW"])

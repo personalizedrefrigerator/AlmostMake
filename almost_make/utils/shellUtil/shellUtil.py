@@ -5,6 +5,7 @@
 import cmd, os, sys, shutil
 
 from almost_make.utils.printUtil import *
+from almost_make.utils.argsUtil import parseArgs
 import almost_make.utils.shellUtil.runner as runner
 import almost_make.utils.shellUtil.escapeParser as escapeParser
 
@@ -42,15 +43,58 @@ CUSTOM_COMMANDS = \
     "exit": lambda args, flags, stdin, stdout, stderr, state: filterArgs(args, 1, stdout) and sys.exit((len(args) > 1 and args[1]) or 0)
 }
 
+LS_DIRECTORY_COLOR = FORMAT_COLORS['BLUE']
+LS_LINK_COLOR = FORMAT_COLORS['BLUE']
+LS_FILE_COLOR = None
+
 def customLs(args, stdin, stdout, stderr, state):
-    listInDirectory = os.path.abspath(state.cwd or '.')
+    dirs = [ os.path.abspath(state.cwd or '.') ]
     
-    if len(args) > 1:
-        listInDirectory = os.path.abspath(os.path.join(listInDirectory, args[1]))
-    fileList = os.listdir(listInDirectory)
-    fileList.sort()
+    args = parseArgs(args, 
+    {
+        'a': 'all',
+        'f': 'unformatted',
+        '1': 'one-per-line'
+    })
+
+    if 'default' in args and len(args['default']) > 0:
+        dirs = map(os.path.abspath, args['default'])
     
-    cprint(" \n".join(fileList) + '\n', file=stdout)
+    def noteEntry(name, color):
+        sep = '  '
+
+        if (not 'all' in args and not 'unformatted' in args) and name.startswith('.'):
+            return
+
+        if 'one-per-line' in args:
+            sep = '\n'
+
+        if 'unformatted' in args:
+            cprint(name + sep, file=stdout)
+        else:
+            cprint(name + sep, color, file=stdout)
+
+    dirs.sort()
+
+    for directory in dirs:
+        if len(dirs) > 1:
+            cprint("%s:\n" % directory, file=stdout)
+
+        noteEntry('.', LS_DIRECTORY_COLOR)
+        noteEntry('..', LS_DIRECTORY_COLOR)
+        
+        fileList = []
+
+        with os.scandir(directory) as files:
+            if not 'unformatted' in args:
+                fileList = sorted(files, key=lambda entry: entry.name)
+            else:
+                fileList = list(files)
+
+        for entry in fileList:
+            noteEntry(entry.name, entry.is_dir() and LS_DIRECTORY_COLOR or LS_FILE_COLOR)
+
+        cprint("\n", file=stdout)
 
 def customPwd(args, stdin, stdout, stderr, state):
     cprint(os.path.abspath(state.cwd or '.') + '\n', file=stdout)
@@ -133,15 +177,47 @@ def getCustomCommands(macros):
     
     return result
 
-def evalScript(text, macroUtil, macros={}, resetCwd = True, defaultFlags = []):
-    text, macros = macroUtil.expandAndDefineMacros(text, macros)
-    state = runner.ShellState()
+def evalScript(text, macroUtil, macros={}, defaultFlags = [], state=None):
+    if not state:
+        state = runner.ShellState()
     
-    result = (runner.runCommand(text, getCustomCommands(macros), defaultFlags, state), macros)
-    
-    if not resetCwd:
-        os.chdir(state.cwd or '.')
-    
-    return result
+    # Set appropriate macros.
+    macros["PWD"] = state.cwd
 
+    text, macros = macroUtil.expandAndDefineMacros(text, macros)
+    return (runner.runCommand(text, getCustomCommands(macros), defaultFlags, state), macros)
+
+if __name__ == "__main__":
+    import almost_make.utils.macroUtil as macroUtility
+    macroUtil = macroUtility.MacroUtil()
+
+    def assertEql(a, b, message):
+        if a != b:
+            raise Exception("%s != %s (%s)" % (str(a), str(b), message))
+
+    testDir = os.path.dirname(__file__)
+
+    if testDir != '':
+        os.chdir(testDir)
+
+    result, _ = evalScript("ls | grep __init__.py", macroUtil,
+    {
+        "_CUSTOM_BASE_COMMANDS": True
+    },
+    defaultFlags=[])
+    assertEql(result, 0, "Test ls and grep in current directory for __init__.")
+
+    result, _ = evalScript("ls -f | grep -F ..", macroUtil,
+    {
+        "_CUSTOM_BASE_COMMANDS": True
+    },
+    defaultFlags=[])
+    assertEql(result, 0, "Test ls with -f flag.")
+
+    result, _ = evalScript("echo -e 'F\\noo' | grep ^F$", macroUtil,
+    {
+        "_CUSTOM_BASE_COMMANDS": True
+    },
+    defaultFlags=[])
+    assertEql(result, 0, "Test echo's -e flag.")
 
