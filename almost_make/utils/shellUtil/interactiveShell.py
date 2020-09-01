@@ -23,6 +23,7 @@ class SimpleShell(cmd.Cmd):
         self.updatePrompt()
         self.macros = self.macroUtil.getDefaultMacros()
         self.defaultFlags = defaultFlags
+        self.state = runner.ShellState()
         
         if useBaseCommands:
         	self.macros["_CUSTOM_BASE_COMMANDS"] = True # Use custom base commands for testing.
@@ -49,9 +50,7 @@ class SimpleShell(cmd.Cmd):
     
     def runCommand(self, command):
         try:
-            state = runner.ShellState()
-            result, self.macros = shell.evalScript(command, self.macroUtil, self.macros, self.defaultFlags, state=state)
-            os.chdir(state.cwd or '.')
+            result, self.macros = shell.evalScript(command, self.macroUtil, self.macros, self.defaultFlags, state=self.state)
             
             if result != 0:
                 cprint("Warning:", FORMAT_COLORS["YELLOW"])
