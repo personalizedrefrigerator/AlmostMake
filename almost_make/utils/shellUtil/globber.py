@@ -50,8 +50,6 @@ def glob(text, cwd):
         fringe = [(0, cwd)]
         
         while len(fringe) > 0:
-            print(str(fringe) + "; " + str(parts) + "; from " + str(text))
-
             depth, path = fringe.pop()
             matches = []
             for currentDepth in range(depth, len(parts)):
