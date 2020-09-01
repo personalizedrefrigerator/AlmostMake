@@ -4,6 +4,7 @@
 # See: https://www.gnu.org/software/bash/manual/bash.html#Shell-Expansions
 
 import shlex, os, re
+from pathlib import Path, PurePath
 import subprocess
 
 PRECEDENCE_LIST = [ '||', '&&', ";", '|', '>', '2>&1', '&' ]
@@ -161,6 +162,28 @@ def collapse(clustered):
     
     return result.strip()
 
+# Glob all arguments in args, excluding the first and 
+# quoted arguments.
+def globArgs(args, state):
+    print(args)
+    result = []
+    cwd = os.path.abspath(state.cwd or '.')
+    cwd = Path(cwd)
+
+    for i in range(0, len(args)):
+        # If the first, or quoted...
+        if i == 0 or True:
+            result.append(args[i])
+        else:
+            paths = sorted(cwd.glob(args[i]))
+
+            if len(paths) == 0:
+                result.append(args[i])
+            else:
+                result.extend(map(PurePath.as_posix, args))
+    
+    return result
+
 # Returns the exit status of the command specified by args
 # (e.g. [ 'ls', '-la' ]). If the command is in [customCommands],
 # however, run the custom command, rather than the system command.
@@ -185,7 +208,7 @@ def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=No
     
     sysShell = SYSTEM_SHELL in flags or None
 
-    # args = globArgs(args, state)
+    #args = globArgs(args, state)
     command = args[0].strip()
 
     if command in customCommands:
@@ -429,4 +452,6 @@ if __name__ == "__main__":
     assertEql(collapse([ "a", "2>&1", '|', 'c' ]), "a 2>&1 | c", "Other separators.")
     assertEql(filterSplitList(shSplit('TEST_MACRO="Testing1234=:= := This **should ** work! "')),
         ['TEST_MACRO="Testing1234=:= := This **should ** work! "'], "Quoting that starts in the middle?")
+    assertEql(globArgs(['*.*'], ShellState()), ['*.*'], "Test identity globbing")
+    assertEql(globArgs(['a test', 'of some things', 'that should work'], ShellState()), ['a test', 'of some things', 'that should work'], "Test identity globbing")
     
