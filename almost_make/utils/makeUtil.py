@@ -296,7 +296,7 @@ class MakeUtil:
     # Run commands specified to generate
     # dependencies of target by the contents
     # of the makefile given in contents.
-    def runMakefile(self, contents, target = '', defaultMacros={ "MAKE": "make" }, overrideMacros={}):
+    def runMakefile(self, contents, target = '', defaultMacros={ "MAKE": "almake" }, overrideMacros={}):
         contents, macros = self.macroUtil.expandAndDefineMacros(contents, defaultMacros)
         targetRecipes, targets = self.getTargetActions(contents)
 
