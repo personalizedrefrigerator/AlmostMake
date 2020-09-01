@@ -31,6 +31,8 @@ firstTarget:
 
 `almake` also makes available the `almost_make` module! Documentation on this is coming, but for now, check out the source on [GitHub](https://github.com/personalizedrefrigerator/AlmostMake)! 
 
+In addition to the `almake` command, the `almake_shell` command is available. This command gives access to an interactive version of the (very limited) shell built into AlmostMake. See `almake --help` and `almake_shell --help` for more information.
+
 ## Installation
 
 ### From PyPI...
