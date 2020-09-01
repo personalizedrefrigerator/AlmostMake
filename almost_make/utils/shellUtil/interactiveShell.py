@@ -47,6 +47,21 @@ class SimpleShell(cmd.Cmd):
     def precmd(self, line):
         return line
     
+    def runCommand(self, command):
+        try:
+            state = runner.ShellState()
+            result, self.macros = shell.evalScript(command, self.macroUtil, self.macros, self.defaultFlags, state=state)
+            os.chdir(state.cwd or '.')
+            
+            if result != 0:
+                cprint("Warning:", FORMAT_COLORS["YELLOW"])
+                print(" Command exited with non-zero exit status, %s." % str(result))
+            return True
+        except Exception as e:
+            cprint("Error running %s:\n%s" % (command, str(e)), FORMAT_COLORS["RED"])
+            print()
+            return False
+
     def default(self, line):
         if line == "EOF":
             sys.exit(0)
@@ -61,18 +76,7 @@ class SimpleShell(cmd.Cmd):
         else:
             self.command += line
         
-        try:
-            state = runner.ShellState()
-            result, self.macros = shell.evalScript(self.command, self.macroUtil, self.macros, self.defaultFlags, state=state)
-            os.chdir(state.cwd or '.')
-            
-            if result != 0:
-                cprint("Warning:", FORMAT_COLORS["YELLOW"])
-                print(" Command exited with non-zero exit status, %s." % str(result))
-        except Exception as e:
-            cprint("Error running %s:\n%s" % (self.command, str(e)), FORMAT_COLORS["RED"])
-            print()
-        
+        self.runCommand(self.command)
         self.command = ""
         
         self.updatePrompt()
@@ -85,12 +89,19 @@ ARG_MAPPINGS = \
     'p': 'system-pipe'
 }
 
+JUST_FLAGS = \
+{
+    'help', 'version', 'without-builtins',
+    'system-pipe'
+}
+
 def printHelp():
     cprint("Help: \n", FORMAT_COLORS['YELLOW'])
     cprint(" Summary: ", FORMAT_COLORS['YELLOW'])
     print("Run an interactive version of the shell built into almake. This is a POSIX-like shell. It is not POSIX-compliant.")
-    cprint(" Usage: almake_shell [options]\n", FORMAT_COLORS['YELLOW'])
-    print("  ...where options include:")
+    cprint(" Usage: almake_shell [options] [files...]\n", FORMAT_COLORS['YELLOW'])
+    print("  ...where each filename in [files...] is an optional file to interpret. If files are given, interpret them before opening the shell.")
+    print("Options include:")
     cprint("    -h, --help", FORMAT_COLORS['GREEN'])
     print("\t Print this message.")
     cprint("    --version", FORMAT_COLORS['GREEN'])
@@ -103,7 +114,7 @@ def printHelp():
         "to the system's shell.")
 
 def main():
-    args = parseArgs(sys.argv, ARG_MAPPINGS)
+    args = parseArgs(sys.argv, ARG_MAPPINGS, strictlyFlags=JUST_FLAGS)
     
     if 'help' in args:
         printHelp()
@@ -121,7 +132,20 @@ def main():
         if 'system-pipe' in args:
             flags.append(runner.USE_SYSTEM_PIPE)
 
-        SimpleShell(builtins, flags).cmdloop()
+        shell = SimpleShell(builtins, flags)
+
+        for script in args['default']:
+            scriptFile = open(script, 'r')
+            lines = scriptFile.readlines()
+            scriptFile.close()
+            
+            for line in lines:
+                result = shell.runCommand(line)
+
+                if not result:
+                    break
+            
+        shell.cmdloop()
 
 
 
