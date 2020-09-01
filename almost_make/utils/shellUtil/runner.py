@@ -85,7 +85,7 @@ def stripQuotes(text):
         return text
     result = []
     firstChar = text[0]
-    lastChar = text[len(text) - 1]
+    lastChar = text[-1]
     
     if firstChar != lastChar:
         return text
@@ -93,6 +93,35 @@ def stripQuotes(text):
     if firstChar in { '"', "'" }:
         return text[1 : len(text) - 1]
     return text
+
+# Return whether text begins and ends with the same quoting character,
+# **and** the quoting is un-interupted. For example, "a, b, c" -> True,
+# "a, b, c' -> False, "a, b," "c" -> False.
+def isQuoted(text):
+    if len(text) < 2:
+        return False
+    if text[0] != text[-1]: # Must start and end with the same character.
+        return False
+    if not text[0] in { '"', "'" }:
+        return False
+    
+    startQuote = text[0]
+
+    escaped = False
+
+    text = text[1:-1] # Remove starting & ending...
+
+    # If something would have broken us out of the quote...
+    for char in text:
+        if char == startQuote and not escaped:
+            return False # ... then it isn't completely quoted.
+        elif char == '\\' and not escaped:
+            escaped = True
+        elif escaped:
+            escaped = False
+    
+    # If the ending quote would have been escaped, it isn't quoted.
+    return not escaped
 
 # Cluster elements in [splitText] based on precedence.
 # E.g. ['a', '||', 'b', '&&', 'c', '-l'] -> [['a'], '||', [['b'], '&&', ['c', '-l']]].
@@ -154,7 +183,7 @@ def collapse(clustered):
         return result
     elif type(clustered[0]) == str:
         for part in clustered:
-            if SPACE_CHARS.search(part.strip()) != None:
+            if SPACE_CHARS.search(part.strip()) != None and not isQuoted(part):
                 result += " " + shlex.quote(part)
             else:
                 result += " " + part
@@ -171,7 +200,10 @@ def globArgs(args, state):
     result = []
     
     for arg in args:
-        result.extend(globber.glob(arg, cwd))
+        if not isQuoted(arg.strip()):
+            result.extend(globber.glob(arg, cwd))
+        else:
+            result.append(arg)
     
     return result
 
@@ -201,7 +233,8 @@ def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=No
 
     if not sysShell:
         args = globArgs(args, state)
-    
+        args = [ stripQuotes(arg) for arg in args ]
+
     command = args[0].strip()
 
     if command in customCommands:
@@ -302,11 +335,11 @@ def shSplit(text):
             elif inQuote == None:
                 inQuote = char
         elif char in [ '(', ')', '|', '&', '>', ';', ' ', '\t', '\n' ] and inQuote == None:
-            result.append(stripQuotes(buff[:len(buff)-1]))
+            result.append(buff[:-1])
             result.append(char)
             buff = ""
     
-    result.append(stripQuotes(buff))
+    result.append(buff)
     
     buff = ''
     filtered = []
@@ -426,7 +459,8 @@ if __name__ == "__main__":
     assertEql(shSplit("1||2&&3"), ["1", "|", "|", "2", "&", "&", "3"], "More complicated, no-space splitting.")
     assertEql(shSplit("1 || 2"), ["1", "|", "|", "2"], "Pipe splitting with spaces.")
     assertEql(shSplit("ls -la"), ["ls", "-la"], "Space-splitting")
-    assertEql(shSplit("'ls -la'"), ["ls -la"], "Quoted space-(not)splitting")
+    assertEql(shSplit("'ls -la'"), ["'ls -la'"], "Quoted space-(not)splitting")
+    assertEql(shSplit("'ls' '-la'"), ["'ls'", "'-la'"], "Quoted parts splitting")
     assertEql(shSplit("1  \t\n > 2 &\n   & 1>2     "), ["1", ">", "2", "&", "&", "1", ">", "2"], "Lots of spaces!")
     assertEql(shSplit("1;2"), ["1", ";", "2"], "Does it correctly split on semi-colons?")
     assertEql(shSplit("1(2)"), ["1", "(", "2", ")"], "What about parentheses?")
@@ -435,8 +469,8 @@ if __name__ == "__main__":
     assertEql(filterSplitList(shSplit("ls || ls")), ["ls", "||", "ls"], "Shlex replacement test 1!")
     assertEql(filterSplitList(shSplit("ls && ps")), ["ls", "&&", "ps"], "Shlex replacement test 2!")
     assertEql(filterSplitList(shSplit("ls; ps")), ["ls", ";", "ps"], "Shlex replacement test 3!")
-    assertEql(filterSplitList(shSplit("ls; (ps 2>&1 | grep 'foo && not foo')")), ["ls", ";", "(", "ps", "2>&1", "|", "grep", "foo && not foo", ")"], "Shlex replacement test 4!")
-    assertEql(filterSplitList(shSplit("\"ls; (ps 2>&1 | grep 'foo && not foo')\"")), ["ls; (ps 2>&1 | grep 'foo && not foo')"], "Shlex replacement test 5!")
+    assertEql(filterSplitList(shSplit("ls; (ps 2>&1 | grep 'foo && not foo')")), ["ls", ";", "(", "ps", "2>&1", "|", "grep", "'foo && not foo'", ")"], "Shlex replacement test 4!")
+    assertEql(filterSplitList(shSplit("\"ls; (ps 2>&1 | grep 'foo && not foo')\"")), ["\"ls; (ps 2>&1 | grep 'foo && not foo')\""], "Shlex replacement test 5!")
     assertEql(filterSplitList(shSplit("make CFLAGS=thing LDFLAGS= CC=cc GCC=g++ A= TEST=33")), 
         [ "make", "CFLAGS=thing", "LDFLAGS=", "CC=cc", "GCC=g++", "A=", "TEST=33" ],
         "Shlex replacement test 6!")

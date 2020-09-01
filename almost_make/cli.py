@@ -51,7 +51,7 @@ def printHelp():
     print("\t\t Keep going if errors are encountered.")
     cprint("    -n, --just-print", FORMAT_COLORS['GREEN'])
     print("\t Just print commands to be run, without evaluating (print commands, don't send them to the shell). ")
-    cprint("Be aware that $(shell ...) macros are still evaluated. This option only applies to individual commands.")
+    print("Be aware that $(shell ...) macros are still evaluated. This option only applies to individual commands.")
     cprint("    -p", FORMAT_COLORS['GREEN'])
     print("\t\t Rather than finding targets, print the makefile, with top-level targets expanded.")
     cprint("    -C dir", FORMAT_COLORS['GREEN'])
