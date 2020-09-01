@@ -1,7 +1,7 @@
 
 ## 0.0.13
  * Partial globbing support in `almake_shell`.
-  * No recursive (e.g. `./**/*.txt`) globbing support yet...
+    * No recursive (e.g. `./**/*.txt`) globbing support yet...
  * Tilde expansion.
  * `almake_shell` has a file option!
  * Flags do not remove arguments from the pool of default arguments.
@@ -10,4 +10,4 @@
 ## 0.0.12
 
  * Built-in shell can now be run via `almake_shell`
-  * Make and shell bug-fixes.
+    * Make and shell bug-fixes.
