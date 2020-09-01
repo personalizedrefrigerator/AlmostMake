@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-VERSION_STRING = "0.0.13"
+VERSION_STRING = "0.0.14"
 
 def printVersion():
     print("AlmostMake v%s" % VERSION_STRING)

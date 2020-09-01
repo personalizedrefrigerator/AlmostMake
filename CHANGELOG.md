@@ -1,4 +1,7 @@
 
+## 0.0.14
+ * Stop using `os.chdir` to keep track of `cwd` in `almake_shell`.
+
 ## 0.0.13
  * Partial globbing support in `almake_shell`.
     * No recursive (e.g. `./**/*.txt`) globbing support yet...
