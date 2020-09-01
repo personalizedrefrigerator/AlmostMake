@@ -8,11 +8,14 @@
 #           with paths relative to the current directory (os.getcwd()), not our
 #           custom [cwd] variable.
 
-import os, glob
+import os, fnmatch, re
+
+HAS_PATTERN = re.compile(r"([^\\]{2})*[\*\[\]]")
 
 def glob(text, cwd):
     # First, determine if the text needs to be/can be globbed.
     canGlob = False
+    canSimplify = False
 
     inQuote = None
     escaped = False
@@ -31,6 +34,37 @@ def glob(text, cwd):
                 return [ text ]
             elif char in { '[', ']', '*' }:
                 canGlob = True
+            elif char in { '~', '/' }:
+                canSimplify = True
+    matchingPaths = []
+
+    # Simplify and expand the path.
+    if canSimplify:
+        text = os.path.normcase(os.path.normpath(os.path.expanduser(text)))
     
-    text = os.path.expanduser(text)
-    return [ text ]
+    if canGlob:
+        parts = os.sep.split(text)
+        fringe = [(0, '')]
+        
+        while len(fringe) > 0:
+            path, depth = fringe.pop()
+            matches = []
+            for currentDepth in range(depth, len(parts)):
+                part = parts[currentDepth]
+                if HAS_PATTERN.match(part) == None:
+                    path = os.path.join(path, part)
+
+                    if not os.path.exists(path):
+                        matches = []
+                        break
+                    continue
+                potentialMatches = os.listdir(path or '.')
+                matches = fnmatch.filter(potentialMatches, part)
+                fringe.extend(zip([currentDepth + 1] * len(matches), matches))
+            matchingPaths.extend(matches)
+
+    
+    if len(matchingPaths) == 0:
+        matchingPaths = [ text ]
+
+    return matchingPaths
