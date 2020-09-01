@@ -12,13 +12,21 @@ SPACE_CHARS = re.compile('\\s')
 # the list is empty.
 # For example, 
 #    make 
+# If a given argument or its single-character
+# representative is in [strictlyFlags], it is
+# considered a flag -- non-argument text after
+# it is associated with [defaultArgKey], rather
+# than the argument. For example, if foo is in 
+# strictlyFlags, then [ ... --foo thing ...]
+# results in { ... 'foo': True, 'default': [... 'thing' ...] ... }.
 def parseArgs(args, 
         mappings = 
         {
             'h': 'help'
         }, 
         defaultArgKey = 'default',
-        excludeFilename = True):
+        excludeFilename = True,
+        strictlyFlags={'help'}):
     result = { }
     singleChars = []
     lastArgText = None
@@ -50,6 +58,12 @@ def parseArgs(args,
             lastArgText = None
         else: # Default argument.
             result[defaultArgKey].append(chunk)
+        
+        # If lastArgText is a flag -- it can't have a value associated with it,
+        # clear it so we don't associate a chunk with it.
+        if lastArgText and lastArgText in strictlyFlags:
+            result[lastArgText] = True
+            lastArgText = None
     if lastArgText:
         result[lastArgText] = True
 

@@ -19,6 +19,12 @@ ARGUMENT_MAPPINGS = \
     'j': 'jobs'
 }
 
+# These are flags, so don't associate values with them...
+JUST_FLAGS = \
+{
+    'help', 'keep-going', 'print-expanded', 'just-print', 'silent', 'built-in-shell'
+}
+
 # Don't save these when we recurse...
 NO_SAVE_ARGS = \
 {
@@ -92,7 +98,7 @@ def printHelp():
 
 # On commandline run...
 def main(args=sys.argv):
-    args = parseArgs(args, ARGUMENT_MAPPINGS)
+    args = parseArgs(args, ARGUMENT_MAPPINGS, strictlyFlags=JUST_FLAGS)
     
     # Fill args from MAKEFLAGS (see https://www.gnu.org/software/make/manual/make.html#How-the-MAKE-Variable-Works)
     args = fillArgsFromEnv(args, "MAKEFLAGS", ARGUMENT_MAPPINGS) # Previously-defined args take precedence.

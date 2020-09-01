@@ -55,10 +55,14 @@ def customLs(args, stdin, stdout, stderr, state):
         'a': 'all',
         'f': 'unformatted',
         '1': 'one-per-line'
+    },
+    strictlyFlags =
+    {
+        'all', 'unformatted', 'one-per-line'
     })
 
     if 'default' in args and len(args['default']) > 0:
-        dirs = map(os.path.abspath, args['default'])
+        dirs = list(map(os.path.abspath, args['default']))
     
     def noteEntry(name, color):
         sep = '  '
@@ -76,8 +80,14 @@ def customLs(args, stdin, stdout, stderr, state):
 
     dirs.sort()
 
+    isFirst = True
+
     for directory in dirs:
         if len(dirs) > 1:
+            if not isFirst:
+                cprint("\n", file=stdout)
+            
+            isFirst = False
             cprint("%s:\n" % directory, file=stdout)
 
         noteEntry('.', LS_DIRECTORY_COLOR)
@@ -213,6 +223,27 @@ if __name__ == "__main__":
     },
     defaultFlags=[])
     assertEql(result, 0, "Test ls with -f flag.")
+
+    result, _ = evalScript("ls -f . | grep -F ..", macroUtil,
+    {
+        "_CUSTOM_BASE_COMMANDS": True
+    },
+    defaultFlags=[])
+    assertEql(result, 0, "Test ls with provided directory")
+
+    result, _ = evalScript("ls -f ./ ../ | grep -F argsUtil.py", macroUtil,
+    {
+        "_CUSTOM_BASE_COMMANDS": True
+    },
+    defaultFlags=[])
+    assertEql(result, 0, "Test ls with provided directories (1 of 2)")
+
+    result, _ = evalScript("ls -f ./ ../ | grep -F escapeParser.py", macroUtil,
+    {
+        "_CUSTOM_BASE_COMMANDS": True
+    },
+    defaultFlags=[])
+    assertEql(result, 0, "Test ls with provided directories (2 of 2)")
 
     result, _ = evalScript("echo -e 'F\\noo' | grep ^F$", macroUtil,
     {
