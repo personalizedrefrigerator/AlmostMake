@@ -42,9 +42,10 @@ clean:
 	-rm -rf almost_make.egg-info
 
 test: install
-	cd almost_make/tests; python3 ../cli.py
 	cd almost_make/utils/shellUtil; python3 runner.py
 	cd almost_make/utils/shellUtil; python3 shellUtil.py
+	cd almost_make/utils/shellUtil; python3 globber.py
+	cd almost_make/tests; python3 ../cli.py
 
 testEnv:
 	python3 -m venv $@

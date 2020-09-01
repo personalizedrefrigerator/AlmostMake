@@ -198,12 +198,14 @@ def collapse(clustered):
 def globArgs(args, state):
     cwd = os.path.abspath(state.cwd or '.')
     result = []
+    isFirst = True
     
     for arg in args:
-        if not isQuoted(arg.strip()):
+        if not isQuoted(arg.strip()) and not isFirst:
             result.extend(globber.glob(arg, cwd))
         else:
             result.append(arg)
+            isFirst = False
     
     return result
 
@@ -479,6 +481,5 @@ if __name__ == "__main__":
     assertEql(collapse([ "a", "2>&1", '|', 'c' ]), "a 2>&1 | c", "Other separators.")
     assertEql(filterSplitList(shSplit('TEST_MACRO="Testing1234=:= := This **should ** work! "')),
         ['TEST_MACRO="Testing1234=:= := This **should ** work! "'], "Quoting that starts in the middle?")
-    assertEql(globArgs(['*.*'], ShellState()), ['*.*'], "Test identity globbing")
     assertEql(globArgs(['a test', 'of some things', 'that should work'], ShellState()), ['a test', 'of some things', 'that should work'], "Test identity globbing")
     
