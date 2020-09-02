@@ -58,7 +58,7 @@ def glob(text, cwd):
 
             for currentDepth in range(depth, len(parts)):
                 part = parts[currentDepth]
-                if HAS_PATTERN.match(part) == None:
+                if HAS_PATTERN.search(part) == None:
                     path = os.path.join(path, part)
 
                     # If we are trying to match in a non-existent place, give up on 
@@ -77,11 +77,12 @@ def glob(text, cwd):
                 
                 potentialMatches = os.listdir(path or '.')
                 potentialMatches = [ os.path.join(path, match) for match in potentialMatches ] # listdir just has filenames... We need the leading [path]...
-                
+                part = os.path.join(path, part)
+
                 matches = fnmatch.filter(potentialMatches, part)
 
                 searchWithDepth = currentDepth + 1
-                if part == '**': # If recursive-globbing, we need to start at the same depth for all sub-directories...
+                if part.endswith('**'): # If recursive-globbing, we need to start at the same depth for all sub-directories...
                     searchWithDepth = currentDepth
                 
                 fringe.extend(zip([searchWithDepth] * len(matches), matches))
@@ -144,8 +145,11 @@ if __name__ == "__main__":
     assertEql(glob("willNotMatch", "."), ["willNotMatch"], "A glob that does nothing!")
     assertPathListsEql(glob("*.txt", "."), ["*.txt"], "A glob that does nothing (but is a valid glob)!")
     assertHas(glob("*.py", "."), "globber.py", "Finding this script with a glob!")
+    assertHas(glob("globber.*", "."), "globber.py", "Finding this script with a different glob!")
+    assertHas(glob("globber.*", os.path.abspath('.')), "globber.py", "Finding this script with a different glob (and differently-formatted path)!")
     assertHasPath(glob("../*.py", "."), "../printUtil.py", "Finding another script with a glob.")
     assertHasPath(glob("../../*.py", "."), "../../cli.py", "Finding yet another script with a glob.")
     assertHasPath(glob("../../*/*.py", "."), "../printUtil.py", "Finding yet another script with a glob.")
     assertHasPath(glob("../../*/shellUtil", "."), ".", "Finding a folder with a glob.")
     assertHasPath(glob("../../**/runner.py", "."), "runner.py", "Recursive globbing.")
+    assertHasPath(glob("**/viaDot.*", "../../tests/"), "testMisc/includeTest/viaDot.mk", "More recursive globbing.")
