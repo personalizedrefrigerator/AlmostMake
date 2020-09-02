@@ -1,4 +1,7 @@
 
+## 0.0.17
+ * Shell-related bug fixes.
+
 ## 0.0.16
  * Built-in `grep` and `cat` commands.
  * Globbing bug-fixes.

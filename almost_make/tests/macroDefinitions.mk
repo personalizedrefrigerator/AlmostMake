@@ -2,7 +2,7 @@
 # Use the mini-shell built into AlmostMake
 export _BUILTIN_SHELL := 1
 export _CUSTOM_BASE_COMMANDS := 1
-export _SYSTEM_SHELL_PIPES := 1
+# export _SYSTEM_SHELL_PIPES := 1
 
 CC = clang
 CFLAGS =
