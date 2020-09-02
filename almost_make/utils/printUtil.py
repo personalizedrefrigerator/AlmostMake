@@ -21,6 +21,15 @@ class _FDWrap:
         self.fd = fd
     def write(self, txt):
         return os.write(self.fd, bytes(txt, 'utf-8'))
+    def read(self):
+        result = ''
+        part = os.read(self.fd, 1).decode('utf-8')
+
+        while part != '':
+            result += part or ''
+            part = os.read(self.fd, 1).decode('utf-8')
+        
+        return result
     def flush(self):
         pass
 

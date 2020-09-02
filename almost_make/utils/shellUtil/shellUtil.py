@@ -2,7 +2,7 @@
 
 # See https://danishpraka.sh/2018/09/27/shell-in-python.html (Accessed Aug 22)
 
-import cmd, os, sys, shutil, pathlib
+import cmd, os, sys, shutil, pathlib, re
 
 from almost_make.utils.printUtil import cprint, FORMAT_COLORS
 import almost_make.utils.printUtil as printer
@@ -43,10 +43,18 @@ Send [text] to standard output.
  -e\t\t Evaluate escape characters (e.g. echo -ne \\n outputs a single newline).
 """,
 
-    "touch": """"Usage: touch [options] [files...]
-    Update the access and modification times for each file in files.
+    "touch": """Usage: touch [options] [files...]
+Update the access and modification times for each file in files.
 Options:
  -c, --no-create  Do not create the file if it does not exist.
+""",
+
+    "cat": """Usage: cat [options] [files...]
+Print the contents of each file in [files]. If a file is -, print standard input, instead.
+Options:
+ -n, --number    Number each line.
+ -T, --show-tabs Replace all tab characters with ^T.
+ -E, --show-ends Print a $ at the end of each line.
 """
 }
 
@@ -233,7 +241,62 @@ def customEcho(args, stdin, stdout, stderr, state):
     cprint(toPrint + printEnd, file=stdout)
 
 def customCat(args, stdin, stdout, stderr, state):
-    pass
+    args = parseArgs(args,
+    {
+        'n': 'number',
+        'T': 'show-tabs',
+        'E': 'show-ends'
+    },
+    strictlyFlags=
+    {
+        'number',
+        'show-tabs',
+        'show-ends'
+    })
+
+    lineNu = 0
+
+    def logLine(line):
+        if 'number' in args:
+            cprint("%s\t" % str(lineNu), file=stdout)
+        
+        if 'show-tabs' in args:
+            line = re.sub(r'[\t]', '^T', line)
+        
+        end = 'show-ends' in args and '$' or ''
+        cprint(str(line) + end + "\n", file=stdout)
+
+    stdin = printer.wrapFile(stdin)
+    
+    for arg in args['default']:
+        if arg == '-':
+            lines = stdin.read().split('\n')
+
+            if len(lines) > 0 and lines[-1] == '':
+                lines = lines[:-1]
+
+            for line in lines:
+                lineNu += 1
+                logLine(line)
+        else:
+            filename = os.path.join(state.cwd or '.', arg)
+
+            if not os.path.exists(filename):
+                cprint("File %s does not exist.\n", printer.FORMAT_COLORS["red"], file=stderr)
+                return False
+            if not os.path.isfile(filename):
+                cprint("Path %s is not a file.\n", printer.FORMAT_COLORS["red"], file=stderr)
+                return False
+            
+            with open(filename, 'r') as file:
+                lines = file.read().split('\n')
+
+                if len(lines) > 0 and lines[-1] == '':
+                    lines = lines[:-1]
+
+                for line in lines:
+                    lineNu += 1
+                    logLine(line)
 
 # Get a set of custom commands that can be used.
 def getCustomCommands(macros):
@@ -253,6 +316,7 @@ def getCustomCommands(macros):
         addCustomCommand("pwd", 1, customPwd)
         addCustomCommand("echo", 2, customEcho)
         addCustomCommand("touch", 2, customTouch)
+        addCustomCommand("cat", 2, customCat)
     
     return result
 
@@ -320,4 +384,32 @@ if __name__ == "__main__":
     },
     defaultFlags=[])
     assertEql(result, 0, "Test echo's -e flag.")
+
+    result, _ = evalScript("echo test | cat - | grep test", macroUtil,
+    {
+        "_CUSTOM_BASE_COMMANDS": True
+    },
+    defaultFlags=[])
+    assertEql(result, 0, "Test cat from stdin")
+
+    result, _ = evalScript("echo -e 'test\nfoo' | cat -n - | grep -F 2", macroUtil,
+    {
+        "_CUSTOM_BASE_COMMANDS": True
+    },
+    defaultFlags=[])
+    assertEql(result, 0, "Test -n flag for cat (line numbers)")
+
+    result, _ = evalScript("echo -e 'test\n\tfoo' | cat -T - | grep \\^Tfoo", macroUtil,
+    {
+        "_CUSTOM_BASE_COMMANDS": True
+    },
+    defaultFlags=[])
+    assertEql(result, 0, "Test -T flag for cat (tab->^T)")
+
+    result, _ = evalScript("echo -e 'test\n\tfoo' | cat -TE - | grep '\\^Tfoo\\$$'", macroUtil,
+    {
+        "_CUSTOM_BASE_COMMANDS": True
+    },
+    defaultFlags=[])
+    assertEql(result, 0, "Test -E flag for cat (ending $)")
 
