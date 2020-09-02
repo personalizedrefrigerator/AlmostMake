@@ -54,17 +54,26 @@ def customLs(args, stdin, stdout, stderr, state):
     {
         'a': 'all',
         'f': 'unformatted',
-        '1': 'one-per-line'
+        '1': 'one-per-line',
+        'Q': 'quote-name',
+        'm': 'comma-separated-list'
     },
     strictlyFlags =
     {
-        'all', 'unformatted', 'one-per-line'
+        'all', 'unformatted', 'one-per-line',
+        'quote-name', 'comma-separated-list'
     })
 
     if 'default' in args and len(args['default']) > 0:
         dirs = list(map(os.path.abspath, args['default']))
     
-    def noteEntry(name, color):
+    def noteEntry(name, color, isLast = False):
+        # If given a file descriptor (not default output),
+        # we probably aren't sending output to a terminal. As such,
+        # remove coloring. --color overrides this.
+        if stdout != None and not 'color' in args:
+            color = None
+
         sep = '  '
 
         if (not 'all' in args and not 'unformatted' in args) and name.startswith('.'):
@@ -72,6 +81,12 @@ def customLs(args, stdin, stdout, stderr, state):
 
         if 'one-per-line' in args:
             sep = '\n'
+
+        if 'quote-name' in args:
+            name = runner.quote(name, '"')
+
+        if not isLast and 'comma-separated-list' in args:
+            sep = ', '
 
         if 'unformatted' in args:
             cprint(name + sep, file=stdout)
@@ -89,9 +104,6 @@ def customLs(args, stdin, stdout, stderr, state):
             
             isFirst = False
             cprint("%s:\n" % directory, file=stdout)
-
-        noteEntry('.', LS_DIRECTORY_COLOR)
-        noteEntry('..', LS_DIRECTORY_COLOR)
         
         fileList = []
 
@@ -101,9 +113,14 @@ def customLs(args, stdin, stdout, stderr, state):
             else:
                 fileList = list(files)
 
-        for entry in fileList:
-            noteEntry(entry.name, entry.is_dir() and LS_DIRECTORY_COLOR or LS_FILE_COLOR)
+        noteEntry('.', LS_DIRECTORY_COLOR)
+        noteEntry('..', LS_DIRECTORY_COLOR, isLast = (len(fileList) == 0))
 
+        if len(fileList) != 0:
+            for entry in fileList[:-1]:
+                noteEntry(entry.name, entry.is_dir() and LS_DIRECTORY_COLOR or LS_FILE_COLOR)
+            noteEntry(fileList[-1].name, fileList[-1].is_dir() and LS_DIRECTORY_COLOR or LS_FILE_COLOR, isLast = True)
+        
         cprint("\n", file=stdout)
 
 def customPwd(args, stdin, stdout, stderr, state):

@@ -94,6 +94,24 @@ def stripQuotes(text):
         return text[1 : len(text) - 1]
     return text
 
+# Surround [text] with quotation marks,
+# escaping any internal quotations with a backslash.
+# Acts similar to shlex.quote in Python 3.7, but always adds
+# quotation marks.
+def quote(text, quoteChar="'"):
+    result = ""
+    escaped = False
+
+    for char in text:
+        if char == quoteChar and not escaped:
+            result += "\\"
+        elif char == '\\' and not escaped:
+            escaped = True
+        elif escaped:
+            escaped = False
+        result += char
+
+    return quoteChar + result + quoteChar
 # Return whether text begins and ends with the same quoting character,
 # **and** the quoting is un-interupted. For example, "a, b, c" -> True,
 # "a, b, c' -> False, "a, b," "c" -> False.
@@ -184,7 +202,7 @@ def collapse(clustered):
     elif type(clustered[0]) == str:
         for part in clustered:
             if SPACE_CHARS.search(part.strip()) != None and not isQuoted(part):
-                result += " " + shlex.quote(part)
+                result += " " + quote(part)
             else:
                 result += " " + part
         return result.strip()
@@ -440,6 +458,7 @@ if __name__ == "__main__":
     
     assertEql("1", "1", "This should always pass. A test of assertEql.")
     assertEql(['1', ['2', '3']], ['1', ['2', '3']], "We rely on this for our tests.")
+
     assertEql(cluster([]), [], "Empty cluster")
     assertEql(cluster(['a']), ['a'], "Identity cluster")
     assertEql(cluster([ "a", "||", "b"]), [['a'], '||', ['b']], "Simple cluster test.")
@@ -452,10 +471,12 @@ if __name__ == "__main__":
     assertEql(cluster([ 'c', '|', 'd', '||', '(', 'f', '&&', 'g', '||', '(', 'h', '))']), 
             [[ ['c'], '|', ['d'] ], '||', [ [ ['f'], '&&', ['g'] ], '||', ['h'] ] ], "More complicated; nested parentheses")
     assertEql(cluster([ '((((((((((', 'a', '))))))))))' ]), ['a'], "Lots of parentheses")
+
     assertEql(filterSplitList([]), [], "Empty split list")
     assertEql(filterSplitList([ '2', '>', '&', '1' ]), [ '2>&1' ], "Split to error re-direction.")
     assertEql(filterSplitList([ '1', '|', '|', '2' ]), ['1', '||', '2'], "Cluster or.")
     assertEql(filterSplitList([ '1', '|', '|', '2', '&', '&', '&', '3', '>', '4' ]), ['1', '||', '2', '&', '&&', '3', '>', '4'], "More complicated clustering")
+
     assertEql(shSplit("123"), ["123"], "Simple split test")
     assertEql(shSplit("1|2|3"), ["1", "|", "2", "|", "3"], "Splitting on pipes")
     assertEql(shSplit("1||2&&3"), ["1", "|", "|", "2", "&", "&", "3"], "More complicated, no-space splitting.")
@@ -468,6 +489,7 @@ if __name__ == "__main__":
     assertEql(shSplit("1(2)"), ["1", "(", "2", ")"], "What about parentheses?")
     assertEql(shSplit("ls -la && (echo -ne foo\\n || (ps))"), ["ls", "-la", "&", "&", "(", "echo", "-ne", "foo\\n", "|", "|", "(", "ps", "))"], "Something like sh.")
     assertEql(shSplit("((( )( )))"), ["(((", ")", "(", ")))"], "Almost all parentheses!")
+
     assertEql(filterSplitList(shSplit("ls || ls")), ["ls", "||", "ls"], "Shlex replacement test 1!")
     assertEql(filterSplitList(shSplit("ls && ps")), ["ls", "&&", "ps"], "Shlex replacement test 2!")
     assertEql(filterSplitList(shSplit("ls; ps")), ["ls", ";", "ps"], "Shlex replacement test 3!")
@@ -476,10 +498,19 @@ if __name__ == "__main__":
     assertEql(filterSplitList(shSplit("make CFLAGS=thing LDFLAGS= CC=cc GCC=g++ A= TEST=33")), 
         [ "make", "CFLAGS=thing", "LDFLAGS=", "CC=cc", "GCC=g++", "A=", "TEST=33" ],
         "Shlex replacement test 6!")
+    assertEql(filterSplitList(shSplit('TEST_MACRO="Testing1234=:= := This **should ** work! "')),
+        ['TEST_MACRO="Testing1234=:= := This **should ** work! "'], "Quoting that starts in the middle?")
+    
     assertEql(collapse([ "1", '&&', '2']), '1 && 2', "Simple collapse test.")
     assertEql(collapse([ "a b", '&&', 'c']), "'a b' && c", "Spaces and quoting.", { "\"a b\" && c" })
     assertEql(collapse([ "a", "2>&1", '|', 'c' ]), "a 2>&1 | c", "Other separators.")
-    assertEql(filterSplitList(shSplit('TEST_MACRO="Testing1234=:= := This **should ** work! "')),
-        ['TEST_MACRO="Testing1234=:= := This **should ** work! "'], "Quoting that starts in the middle?")
+    
     assertEql(globArgs(['a test', 'of some things', 'that should work'], ShellState()), ['a test', 'of some things', 'that should work'], "Test identity globbing")
     
+    assertEql(quote("singleWord"), "\'singleWord\'", "Single-word quoting")
+    assertEql(quote("two words", '"'), "\"two words\"", "Two-word, double-quoting")
+    assertEql(quote("two words"), "\'two words\'", "Two-word, single-quoting")
+    assertEql(quote("""assertEql(quote("two words", "'"), "\'two words\'", "Two-word, single-quoting")""", "'"), 
+        r''' 'assertEql(quote("two words", "\'"), "\'two words\'", "Two-word, single-quoting")' '''.strip(), 
+        "Quoting the single-quoting test.")
+    assertEql(quote("[left-[br]][acket[[quoting", '['), "[\\[left-\\[br]]\\[acket\\[\\[quoting[", "Quoting with left-bracket characters!")

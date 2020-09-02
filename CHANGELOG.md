@@ -1,4 +1,7 @@
 
+## 0.1.0
+ * Built-in `ls` doesn't use color when piped.
+
 ## 0.0.14
  * Stop using `os.chdir` to keep track of `cwd` in `almake_shell`.
 
