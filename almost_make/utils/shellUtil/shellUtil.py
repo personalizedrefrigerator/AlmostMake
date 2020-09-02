@@ -298,6 +298,86 @@ def customCat(args, stdin, stdout, stderr, state):
                     lineNu += 1
                     logLine(line)
 
+def customGrep(args, stdin, stdout, stderr):
+    args = parseArgs(args,
+    {
+        'F': 'fixed-strings',
+        'i': 'ignore-case',
+        'v': 'invert-match',
+        'c': 'count',
+        'q': 'quiet',
+        'x': 'line-regexp',
+        'o': 'only-matching',
+        'n': 'line-number'
+    },
+    strictlyFlags=
+    {
+        'fixed-strings', 'ignore-case', 'invert-match',
+        'count', 'quiet'
+    })
+
+    if len(args['default']) > 1:
+        cprint("[Files...] is currently unsupported. Input should be given via stdin.\n", printer.FORMAT_COLORS['red'], file=stderr)
+        return False
+    
+    patterns = []
+
+    if len(args['default']) > 0:
+        patternList = args['default'][0].split('\n')
+
+        for part in patternList:
+            flags = 0
+
+            if 'fixed-strings' in args:
+                part = re.escape(part)
+            if 'ignore-case' in args:
+                flags = flags | re.IGNORECASE
+
+            patterns.append(re.compile(part, flags))
+    
+    def matchesLine(line):
+        matches = []
+        for pattern in patterns:
+            matchInfo = None
+
+            if not 'line-regexp' in args:
+                matchInfo = pattern.search(line)
+            else:
+                matchInfo = pattern.fullmatch(line)
+
+            if matchInfo != None:
+                matches.append(matchInfo.span)
+        return matches
+    
+    stdin = printer.wrapFile(stdin)
+    lines = stdin.read().split('\n')
+
+    lineNumber = 0
+    matchCount = 0
+
+    for line in lines:
+        lineNumber += 1
+        matches = matchesLine(line)
+
+        # Negates (len(matches) > 0) if 'invert-match' in args.
+        if (len(matches) > 0) == (not 'invert-match' in args):
+            matchCount += 1 # Count the number of **lines**
+
+            if not 'count' in args and not 'quiet' in args:
+                if 'line-number' in args:
+                    cprint(str(lineNumber) + '\t', file=stdout)
+
+                if not 'only-matching' in args or 'invert-match' in args:
+                    cprint(line + '\n', file=stdout)
+                else:
+                    for start,stop in matches:
+                        cprint(line[start:stop] + '\n', file=stdout)
+    
+    if 'count' in args:
+        cprint(matchCount + '\n', file=stdout)
+    
+    return matchCount
+
 # Get a set of custom commands that can be used.
 def getCustomCommands(macros):
     result = {}
@@ -412,4 +492,11 @@ if __name__ == "__main__":
     },
     defaultFlags=[])
     assertEql(result, 0, "Test -E flag for cat (ending $)")
+
+    result, _ = evalScript("cat __init__.py | grep '__all__'", macroUtil,
+    {
+        "_CUSTOM_BASE_COMMANDS": True
+    },
+    defaultFlags=[])
+    assertEql(result, 0, "Test cat [filename].")
 
