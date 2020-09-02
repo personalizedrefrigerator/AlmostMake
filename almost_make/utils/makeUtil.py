@@ -11,7 +11,7 @@ import re, sys, os, subprocess, time, threading
 #                                                   # executor to the queue when in an executed thread can cause deadlock! See 
 #                                                   # https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor
 
-from almost_make.utils.printUtil import *
+from almost_make.utils.printUtil import cprint
 import almost_make.utils.macroUtil as macroUtility
 import almost_make.utils.shellUtil.shellUtil as shellUtility
 import almost_make.utils.shellUtil.runner as runner

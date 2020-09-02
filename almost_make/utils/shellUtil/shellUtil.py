@@ -16,22 +16,25 @@ SHELL_NAME = "AlmostMake's built-in shell"
 QUICK_HELP = \
 {
     "cd": """Usage: cd [directory]
-Change the current working directory to [directory].""",
+Change the current working directory to [directory].
+""",
 
     "exit": """Usage: exit [status]
 Exit the current script/shell with status [status].
-If [status] is not provided, exit with code zero.""",
+If [status] is not provided, exit with code zero.
+""",
 
     "ls": """Usage: ls [options] [directories]
 Print the contents of each directory in [directories] 
 or the current working directory.
 [options] can contain:
  -a, --all                   List all files, including '.' and '..'
- -1, --one-per-line          Each file on its own line.
+ -1, --one-per-line          Each file on its own line. This is assumed when output does not appear to be to a terminal.
  -Q, --quote-name            Surround the name of each file with double-quotes.
  -m, --comma-separated-list  List files on a single line, as a comma-separated list.
  -f, --unformatted           No color output, do not sort.
- --color                     Force color output.""",
+ --color                     Force color output. Do not assume --one-per-line when output does not seem to be to a terminal.
+ """,
 
     "pwd": """Usage: pwd
 Print the current working directory's absolute path.""",
@@ -67,6 +70,7 @@ Options:
  -x, --line-regexp     PATTERN must match each line in its entirety.
  -o, --only-matching   Only output portions of the line that match PATTERN. Ignored if --line-regexp or -x are given.
  -n, --line-number     Prefix each printed-line with a line number.
+ --no-color            Force uncolorized output.
 """
 }
 
@@ -103,17 +107,21 @@ def customLs(args, stdin, stdout, stderr, state):
     strictlyFlags =
     {
         'all', 'unformatted', 'one-per-line',
-        'quote-name', 'comma-separated-list'
+        'quote-name', 'comma-separated-list',
+        'color'
     })
 
     if 'default' in args and len(args['default']) > 0:
         dirs = list(map(os.path.abspath, args['default']))
     
     def noteEntry(name, color, isLast = False):
+        decolorized = False # If we decolorize, do other formatting...
+
         # If given a file descriptor (not default output),
         # we probably aren't sending output to a terminal. As such,
         # remove coloring. --color overrides this.
         if stdout != None and not 'color' in args:
+            decolorized = True
             color = None
 
         sep = '  '
@@ -121,7 +129,7 @@ def customLs(args, stdin, stdout, stderr, state):
         if (not 'all' in args and not 'unformatted' in args) and name.startswith('.'):
             return
 
-        if 'one-per-line' in args:
+        if 'one-per-line' in args or decolorized:
             sep = not isLast and '\n' or ''
 
         if 'quote-name' in args:
@@ -130,7 +138,7 @@ def customLs(args, stdin, stdout, stderr, state):
         if not isLast and 'comma-separated-list' in args:
             sep = ', '
 
-            if 'one-per-line' in args:
+            if 'one-per-line' in args or decolorized:
                 sep = ',\n'
 
         if 'unformatted' in args:
@@ -326,7 +334,7 @@ def customGrep(args, stdin, stdout, stderr, state):
     {
         'fixed-strings', 'ignore-case', 'invert-match',
         'count', 'quiet', 'line-regexp', 'only-matching',
-        'line-number'
+        'line-number', 'no-color'
     })
 
     if len(args['default']) > 1:
@@ -365,6 +373,10 @@ def customGrep(args, stdin, stdout, stderr, state):
     stdin = printer.wrapFile(stdin)
     lines = stdin.read().split('\n')
 
+    # Input is from stdin... There is often a trailing newline...
+    if len(lines) > 0 and lines[-1] == '\n':
+        lines = lines[:-1]
+
     lineNumber = 0
     matchCount = 0
 
@@ -381,7 +393,33 @@ def customGrep(args, stdin, stdout, stderr, state):
                     cprint(str(lineNumber) + '\t', file=stdout)
 
                 if not 'only-matching' in args or 'invert-match' in args:
-                    cprint(line + '\n', file=stdout)
+                    if stdout != None or 'no-color' in args: # Don't colorize output when output isn't the default...
+                        cprint(line + '\n', file=stdout)
+                    else: # Otherwise, colorize output.
+                        startIndexes = set()
+                        stopIndexes = set()
+
+                        for start,stop in matches:
+                            startIndexes.add(start)
+                            stopIndexes.add(stop)
+                        
+                        buff = ''
+                        inRange = False
+
+                        for i in range(0, len(line)):
+                            if i in startIndexes and not inRange:
+                                inRange = True
+                            elif i in stopIndexes and inRange:
+                                cprint(buff, printer.FORMAT_COLORS['PURPLE'], file=stdout)
+                                inRange = False
+                                buff = ''
+                            if inRange:
+                                buff += line[i]
+                            else:
+                                cprint(line[i], file=stdout)
+                        
+                        cprint(buff, printer.FORMAT_COLORS['PURPLE'], file=stdout)
+                        cprint('\n', file=stdout)
                 else:
                     for start,stop in matches:
                         cprint(line[start:stop] + '\n', file=stdout)
