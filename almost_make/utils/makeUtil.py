@@ -15,10 +15,12 @@ from almost_make.utils.printUtil import cprint
 import almost_make.utils.macroUtil as macroUtility
 import almost_make.utils.shellUtil.shellUtil as shellUtility
 import almost_make.utils.shellUtil.runner as runner
+import almost_make.utils.shellUtil.globber as globber
 import almost_make.utils.errorUtil as errorUtility
 
 # Regular expressions
-SPACE_CHARS = re.compile("\\s")
+SPACE_CHARS = re.compile(r'\s')
+INCLUDE_DIRECTIVE_EXP = re.compile(r"^\s*(include|\.include|-include|sinclude)")
 
 # Targets that are used by this parser/should be ignored.
 MAGIC_TARGETS = \
@@ -306,22 +308,50 @@ class MakeUtil:
                 inRecipe = True
             elif inRecipe:
                 inRecipe = False
-            elif line.startswith('include ') or line.startswith('.include '):
+            elif INCLUDE_DIRECTIVE_EXP.search(line) != None:
+                line = self.macroUtil.expandMacroUsages(line, macros)
+                
                 parts = runner.shSplit(line)
+                command = parts[0].strip()
+
+                parts = runner.globArgs(parts, runner.ShellState()) # Glob all...
                 parts = parts[1:] # Remove leading include...
+                ignoreError = False
+
+                # Safe including?
+                if command.startswith('-') or command.startswith('s'):
+                    ignoreError = True
 
                 for fileName in parts:
                     fileName = runner.stripQuotes(fileName)
 
                     if not os.path.exists(fileName):
+                        if ignoreError:
+                            continue
+
                         self.errorUtil.reportError("File %s does not exist. Context: %s" % (fileName, line))
                         return (contents, macros)
                     
-                    with open(fileName, 'r') as file:
-                        contents = file.read().split('\n')
-                        contents.reverse()
+                    if not os.path.isfile(fileName):
+                        if ignoreError:
+                            continue
+                            
+                        self.errorUtil.reportError("%s is not a file! Context: %s" % (fileName, line))
+                        return (contents, macros)
 
-                        newLines.extend(contents)
+                    try:
+                        with open(fileName, 'r') as file:
+                            contents = file.read().split('\n')
+                            contents.reverse() # We're reading in reverse, so write in reverse.
+
+                            newLines.extend(contents)
+                        continue
+                    except IOError as ex:
+                        if ignoreError:
+                            continue
+                        
+                        self.errorUtil.reportError("Unable to open %s: %s. Context: %s" % (fileName, str(ex), line))
+                        return (contents, macros)
             newLines.append(line)
 
         newLines.reverse()
