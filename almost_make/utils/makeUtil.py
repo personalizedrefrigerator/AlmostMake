@@ -1,4 +1,4 @@
-#!python
+#!/usr/bin/python3
 
 # Parses very simple Makefiles.
 # Useful Resources:
@@ -11,14 +11,16 @@ import re, sys, os, subprocess, time, threading
 #                                                   # executor to the queue when in an executed thread can cause deadlock! See 
 #                                                   # https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor
 
-from almost_make.utils.printUtil import *
+from almost_make.utils.printUtil import cprint
 import almost_make.utils.macroUtil as macroUtility
 import almost_make.utils.shellUtil.shellUtil as shellUtility
 import almost_make.utils.shellUtil.runner as runner
+import almost_make.utils.shellUtil.globber as globber
 import almost_make.utils.errorUtil as errorUtility
 
 # Regular expressions
-SPACE_CHARS = re.compile("\\s")
+SPACE_CHARS = re.compile(r'\s')
+INCLUDE_DIRECTIVE_EXP = re.compile(r"^\s*(include|\.include|-include|sinclude)")
 
 # Targets that are used by this parser/should be ignored.
 MAGIC_TARGETS = \
@@ -292,12 +294,76 @@ class MakeUtil:
                 if haltOnFail: # e.g. -rm foo should be silent even if it cannot remove foo.
                     self.errorUtil.reportError("Unable to run command:\n    ``%s``. \n\n  Message:\n%s" % (command, str(e)))
         return True
+    
+    # Handle all .include and include directives.
+    def handleIncludes(self, contents, macros):
+        lines = self.macroUtil.getLines(contents)
+        lines.reverse()
+
+        newLines = []
+        inRecipe = False
+
+        for line in lines:
+            if line.startswith(self.recipeStartChar):
+                inRecipe = True
+            elif inRecipe:
+                inRecipe = False
+            elif INCLUDE_DIRECTIVE_EXP.search(line) != None:
+                line = self.macroUtil.expandMacroUsages(line, macros)
+                
+                parts = runner.shSplit(line)
+                command = parts[0].strip()
+
+                parts = runner.globArgs(parts, runner.ShellState()) # Glob all...
+                parts = parts[1:] # Remove leading include...
+                ignoreError = False
+
+                # Safe including?
+                if command.startswith('-') or command.startswith('s'):
+                    ignoreError = True
+
+                for fileName in parts:
+                    fileName = runner.stripQuotes(fileName)
+
+                    if not os.path.exists(fileName):
+                        if ignoreError:
+                            continue
+
+                        self.errorUtil.reportError("File %s does not exist. Context: %s" % (fileName, line))
+                        return (contents, macros)
+                    
+                    if not os.path.isfile(fileName):
+                        if ignoreError:
+                            continue
+                            
+                        self.errorUtil.reportError("%s is not a file! Context: %s" % (fileName, line))
+                        return (contents, macros)
+
+                    try:
+                        with open(fileName, 'r') as file:
+                            contents = file.read().split('\n')
+                            contents.reverse() # We're reading in reverse, so write in reverse.
+
+                            newLines.extend(contents)
+                        continue
+                    except IOError as ex:
+                        if ignoreError:
+                            continue
+                        
+                        self.errorUtil.reportError("Unable to open %s: %s. Context: %s" % (fileName, str(ex), line))
+                        return (contents, macros)
+            newLines.append(line)
+
+        newLines.reverse()
+
+        return self.macroUtil.expandAndDefineMacros("\n".join(newLines), macros)
 
     # Run commands specified to generate
     # dependencies of target by the contents
     # of the makefile given in contents.
     def runMakefile(self, contents, target = '', defaultMacros={ "MAKE": "almake" }, overrideMacros={}):
         contents, macros = self.macroUtil.expandAndDefineMacros(contents, defaultMacros)
+        contents, macros = self.handleIncludes(contents, macros)
         targetRecipes, targets = self.getTargetActions(contents)
 
         if target == '' and len(targets) > 0:

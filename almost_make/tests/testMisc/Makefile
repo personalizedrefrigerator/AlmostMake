@@ -6,6 +6,7 @@ clean:
 
 check: bracketCheck
 	$(MAKE) -C subdir1 -n | grep "echo"
+	$(MAKE) -C includeTest
 	@echo PASS | grep PASS
 
 A := F

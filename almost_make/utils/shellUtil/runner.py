@@ -83,7 +83,6 @@ def unwrapParens(buff):
 def stripQuotes(text):
     if len(text) < 2:
         return text
-    result = []
     firstChar = text[0]
     lastChar = text[-1]
     
@@ -167,7 +166,6 @@ def cluster(splitText, level=0):
 
     parenLevel = 0
     addedChunks = 0
-    part = []
 
     for chunk in splitText:
         if chunk.startswith("("):
@@ -340,6 +338,7 @@ def evalCommand(orderedCommand, customCommands={}, flags=[], stdin=None, stdout=
     else:
         raise SyntaxError("Too many parts to expression, %s" % str(orderedCommand))
 
+# Like shlex.split with punctuation grouping, but groups punctuation intelligently.
 def shSplit(text):
     escaped = False
     inQuote = None
@@ -349,11 +348,15 @@ def shSplit(text):
     # Split by spaces and parentheses (and other punctuation chars...).
     for char in text:
         buff += char
-        if char in { '"', "'" }:
+        if char in { '"', "'" } and not escaped:
             if inQuote == char:
                 inQuote = None
             elif inQuote == None:
                 inQuote = char
+        elif char == '\\' and not escaped:
+            escaped = True
+        elif escaped:
+            escaped = False
         elif char in [ '(', ')', '|', '&', '>', ';', ' ', '\t', '\n' ] and inQuote == None:
             result.append(buff[:-1])
             result.append(char)

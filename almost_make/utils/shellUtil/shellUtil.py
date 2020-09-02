@@ -2,7 +2,7 @@
 
 # See https://danishpraka.sh/2018/09/27/shell-in-python.html (Accessed Aug 22)
 
-import cmd, os, sys, shutil, pathlib
+import cmd, os, sys, shutil, pathlib, re
 
 from almost_make.utils.printUtil import cprint, FORMAT_COLORS
 import almost_make.utils.printUtil as printer
@@ -16,22 +16,25 @@ SHELL_NAME = "AlmostMake's built-in shell"
 QUICK_HELP = \
 {
     "cd": """Usage: cd [directory]
-Change the current working directory to [directory].""",
+Change the current working directory to [directory].
+""",
 
     "exit": """Usage: exit [status]
 Exit the current script/shell with status [status].
-If [status] is not provided, exit with code zero.""",
+If [status] is not provided, exit with code zero.
+""",
 
     "ls": """Usage: ls [options] [directories]
 Print the contents of each directory in [directories] 
 or the current working directory.
 [options] can contain:
  -a, --all                   List all files, including '.' and '..'
- -1, --one-per-line          Each file on its own line.
+ -1, --one-per-line          Each file on its own line. This is assumed when output does not appear to be to a terminal.
  -Q, --quote-name            Surround the name of each file with double-quotes.
  -m, --comma-separated-list  List files on a single line, as a comma-separated list.
  -f, --unformatted           No color output, do not sort.
- --color                     Force color output.""",
+ --color                     Force color output. Do not assume --one-per-line when output does not seem to be to a terminal.
+ """,
 
     "pwd": """Usage: pwd
 Print the current working directory's absolute path.""",
@@ -43,10 +46,31 @@ Send [text] to standard output.
  -e\t\t Evaluate escape characters (e.g. echo -ne \\n outputs a single newline).
 """,
 
-    "touch": """"Usage: touch [options] [files...]
-    Update the access and modification times for each file in files.
+    "touch": """Usage: touch [options] [files...]
+Update the access and modification times for each file in files.
 Options:
  -c, --no-create  Do not create the file if it does not exist.
+""",
+
+    "cat": """Usage: cat [options] [files...]
+Print the contents of each file in [files]. If a file is -, print standard input, instead.
+Options:
+ -n, --number    Number each line.
+ -T, --show-tabs Replace all tab characters with ^T.
+ -E, --show-ends Print a $ at the end of each line.
+""",
+    "grep": """Usage: grep [options] PATTERN
+Search for PATTERN in standard input.
+Options:
+ -F, --fixed-strings   Treat PATTERN as a fixed string, rather than a regular expression.
+ -i, --ignore-case     Do case-insensitive matching.
+ -v, --invert-match    Count and print (print depends on other options) lines that do not match PATTERN.
+ -c, --count           Print the count of matching lines, rather than the contents of the lines.
+ -q, --quiet           Limit output.
+ -x, --line-regexp     PATTERN must match each line in its entirety.
+ -o, --only-matching   Only output portions of the line that match PATTERN. Ignored if --line-regexp or -x are given.
+ -n, --line-number     Prefix each printed-line with a line number.
+ --no-color            Force uncolorized output.
 """
 }
 
@@ -83,17 +107,21 @@ def customLs(args, stdin, stdout, stderr, state):
     strictlyFlags =
     {
         'all', 'unformatted', 'one-per-line',
-        'quote-name', 'comma-separated-list'
+        'quote-name', 'comma-separated-list',
+        'color'
     })
 
     if 'default' in args and len(args['default']) > 0:
         dirs = list(map(os.path.abspath, args['default']))
     
     def noteEntry(name, color, isLast = False):
+        decolorized = False # If we decolorize, do other formatting...
+
         # If given a file descriptor (not default output),
         # we probably aren't sending output to a terminal. As such,
         # remove coloring. --color overrides this.
         if stdout != None and not 'color' in args:
+            decolorized = True
             color = None
 
         sep = '  '
@@ -101,7 +129,7 @@ def customLs(args, stdin, stdout, stderr, state):
         if (not 'all' in args and not 'unformatted' in args) and name.startswith('.'):
             return
 
-        if 'one-per-line' in args:
+        if 'one-per-line' in args or decolorized:
             sep = not isLast and '\n' or ''
 
         if 'quote-name' in args:
@@ -110,7 +138,7 @@ def customLs(args, stdin, stdout, stderr, state):
         if not isLast and 'comma-separated-list' in args:
             sep = ', '
 
-            if 'one-per-line' in args:
+            if 'one-per-line' in args or decolorized:
                 sep = ',\n'
 
         if 'unformatted' in args:
@@ -232,6 +260,175 @@ def customEcho(args, stdin, stdout, stderr, state):
     
     cprint(toPrint + printEnd, file=stdout)
 
+def customCat(args, stdin, stdout, stderr, state):
+    args = parseArgs(args,
+    {
+        'n': 'number',
+        'T': 'show-tabs',
+        'E': 'show-ends'
+    },
+    strictlyFlags=
+    {
+        'number',
+        'show-tabs',
+        'show-ends'
+    })
+
+    lineNu = 0
+
+    def logLine(line):
+        if 'number' in args:
+            cprint("%s\t" % str(lineNu), file=stdout)
+        
+        if 'show-tabs' in args:
+            line = re.sub(r'[\t]', '^T', line)
+        
+        end = 'show-ends' in args and '$' or ''
+        cprint(str(line) + end + "\n", file=stdout)
+
+    stdin = printer.wrapFile(stdin)
+    
+    for arg in args['default']:
+        if arg == '-':
+            lines = stdin.read().split('\n')
+
+            if len(lines) > 0 and lines[-1] == '':
+                lines = lines[:-1]
+
+            for line in lines:
+                lineNu += 1
+                logLine(line)
+        else:
+            filename = os.path.join(state.cwd or '.', arg)
+
+            if not os.path.exists(filename):
+                cprint("File %s does not exist.\n", printer.FORMAT_COLORS["red"], file=stderr)
+                return False
+            if not os.path.isfile(filename):
+                cprint("Path %s is not a file.\n", printer.FORMAT_COLORS["red"], file=stderr)
+                return False
+            
+            with open(filename, 'r') as file:
+                lines = file.read().split('\n')
+
+                if len(lines) > 0 and lines[-1] == '':
+                    lines = lines[:-1]
+
+                for line in lines:
+                    lineNu += 1
+                    logLine(line)
+
+def customGrep(args, stdin, stdout, stderr, state):
+    args = parseArgs(args,
+    {
+        'F': 'fixed-strings',
+        'i': 'ignore-case',
+        'v': 'invert-match',
+        'c': 'count',
+        'q': 'quiet',
+        'x': 'line-regexp',
+        'o': 'only-matching',
+        'n': 'line-number'
+    },
+    strictlyFlags=
+    {
+        'fixed-strings', 'ignore-case', 'invert-match',
+        'count', 'quiet', 'line-regexp', 'only-matching',
+        'line-number', 'no-color'
+    })
+
+    if len(args['default']) > 1:
+        cprint("[Files...] is currently unsupported. Input should be given via stdin.\n", printer.FORMAT_COLORS['red'], file=stderr)
+        return False
+    
+    patterns = []
+
+    if len(args['default']) > 0:
+        patternList = args['default'][0].split('\n')
+
+        for part in patternList:
+            flags = 0
+
+            if 'fixed-strings' in args:
+                part = re.escape(part)
+            if 'ignore-case' in args:
+                flags = flags | re.IGNORECASE
+
+            patterns.append(re.compile(part, flags))
+    
+    def matchesLine(line):
+        matches = []
+        for pattern in patterns:
+            matchInfo = None
+
+            if not 'line-regexp' in args:
+                matchInfo = pattern.search(line)
+            else:
+                matchInfo = pattern.fullmatch(line)
+
+            if matchInfo != None:
+                matches.append(matchInfo.span())
+        return matches
+    
+    stdin = printer.wrapFile(stdin)
+    lines = stdin.read().split('\n')
+
+    # Input is from stdin... There is often a trailing newline...
+    if len(lines) > 0 and lines[-1] == '\n':
+        lines = lines[:-1]
+
+    lineNumber = 0
+    matchCount = 0
+
+    for line in lines:
+        lineNumber += 1
+        matches = matchesLine(line)
+
+        # Negates (len(matches) > 0) if 'invert-match' in args.
+        if (len(matches) > 0) == (not 'invert-match' in args):
+            matchCount += 1 # Count the number of **lines**
+
+            if not 'count' in args and not 'quiet' in args:
+                if 'line-number' in args:
+                    cprint(str(lineNumber) + '\t', file=stdout)
+
+                if not 'only-matching' in args or 'invert-match' in args:
+                    if stdout != None or 'no-color' in args: # Don't colorize output when output isn't the default...
+                        cprint(line + '\n', file=stdout)
+                    else: # Otherwise, colorize output.
+                        startIndexes = set()
+                        stopIndexes = set()
+
+                        for start,stop in matches:
+                            startIndexes.add(start)
+                            stopIndexes.add(stop)
+                        
+                        buff = ''
+                        inRange = False
+
+                        for i in range(0, len(line)):
+                            if i in startIndexes and not inRange:
+                                inRange = True
+                            elif i in stopIndexes and inRange:
+                                cprint(buff, printer.FORMAT_COLORS['PURPLE'], file=stdout)
+                                inRange = False
+                                buff = ''
+                            if inRange:
+                                buff += line[i]
+                            else:
+                                cprint(line[i], file=stdout)
+                        
+                        cprint(buff, printer.FORMAT_COLORS['PURPLE'], file=stdout)
+                        cprint('\n', file=stdout)
+                else:
+                    for start,stop in matches:
+                        cprint(line[start:stop] + '\n', file=stdout)
+    
+    if 'count' in args:
+        cprint(str(matchCount) + '\n', file=stdout)
+    
+    return matchCount > 0
+
 # Get a set of custom commands that can be used.
 def getCustomCommands(macros):
     result = {}
@@ -250,6 +447,8 @@ def getCustomCommands(macros):
         addCustomCommand("pwd", 1, customPwd)
         addCustomCommand("echo", 2, customEcho)
         addCustomCommand("touch", 2, customTouch)
+        addCustomCommand("cat", 2, customCat)
+        addCustomCommand("grep", 2, customGrep)
     
     return result
 
@@ -270,51 +469,83 @@ if __name__ == "__main__":
     def assertEql(a, b, message):
         if a != b:
             raise Exception("%s != %s (%s)" % (str(a), str(b), message))
+    
+    def assertNotEql(a, b, message):
+        if a == b:
+            raise Exception("%s == %s (%s)" % (str(a), str(b), message))
 
     testDir = os.path.dirname(__file__)
 
     if testDir != '':
         os.chdir(testDir)
 
-    result, _ = evalScript("ls | grep __init__.py", macroUtil,
+    macros = \
     {
         "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    }
+
+    result, _ = evalScript("ls | grep __init__.py", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test ls and grep in current directory for __init__.")
 
-    result, _ = evalScript("ls -f | grep -F ..", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("ls -f | grep -F ..", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test ls with -f flag.")
 
-    result, _ = evalScript("ls -f . | grep -F ..", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("ls -f . | grep -F ..", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test ls with provided directory")
 
-    result, _ = evalScript("ls -f ./ ../ | grep -F argsUtil.py", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("ls -f ./ ../ | grep -F argsUtil.py", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test ls with provided directories (1 of 2)")
 
-    result, _ = evalScript("ls -f ./ ../ | grep -F escapeParser.py", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("ls -f ./ ../ | grep -F escapeParser.py", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test ls with provided directories (2 of 2)")
 
-    result, _ = evalScript("echo -e 'F\\noo' | grep ^F$", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("echo -e 'F\\noo' | grep ^F$", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test echo's -e flag.")
 
+    result, _ = evalScript("echo test | cat - | grep test", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test cat from stdin")
+
+    result, _ = evalScript("echo -e 'test\\nfoo' | cat -n - | grep -F 2", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test -n flag for cat (line numbers)")
+
+    result, _ = evalScript("echo -e 'test\\n\\tfoo' | cat -T - | grep \\^Tfoo", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test -T flag for cat (tab->^T)")
+
+    result, _ = evalScript("echo -e 'test\\n\\tfoo' | cat -TE - | grep '\\^Tfoo\\$$'", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test -E flag for cat (ending $)")
+
+    result, _ = evalScript("cat __init__.py | grep '__all__'", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test cat [filename].")
+
+    result, _ = evalScript("echo nothing | grep 'should not find anything'", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 1, "Test grep failure.")
+
+    result, _ = evalScript("echo nothing | grep 'o[th]+ing$'", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep simple regexp.")
+
+    result, _ = evalScript("echo nothing | grep -x noth", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 1, "Test grep full-line match failure.")
+
+    result, _ = evalScript("echo '' | grep -x .*", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test (very simple) grep full-line match success.")
+
+    result, _ = evalScript("echo nothing | grep -Fx nothing", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep full-line match success (with -F).")
+
+    result, _ = evalScript("echo nothing | grep -x nothing", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep full-line match success.")
+
+    result, _ = evalScript("echo -e 'a\\nbcd\\nefg' | grep -Fv 'nothing'", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep invert-match success.")
+
+    result, _ = evalScript("echo textthenfood | grep -o foo | grep -Fx foo", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep only-match success.")
+
+    result, _ = evalScript("echo textthenfood | grep -c foo | grep -Fx 1", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep count (1).")
+
+    result, _ = evalScript("echo -e 'textthenfood\\nfoo' | grep -c foo | grep -Fx 2", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep count (2).")
+
+    result, _ = evalScript("echo -e 'textthenfood\\nfoo' | grep -n foo | cat -T - | grep -Fx 2^Tfoo", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep line number (2).")
