@@ -148,4 +148,4 @@ if __name__ == "__main__":
     assertHasPath(glob("../../*.py", "."), "../../cli.py", "Finding yet another script with a glob.")
     assertHasPath(glob("../../*/*.py", "."), "../printUtil.py", "Finding yet another script with a glob.")
     assertHasPath(glob("../../*/shellUtil", "."), ".", "Finding a folder with a glob.")
-    assertHasPath(glob("../../**/__init__.py", "."), "__init__.py", "Recursive globbing.")
+    assertHasPath(glob("../../**/runner.py", "."), "runner.py", "Recursive globbing.")
