@@ -2,7 +2,7 @@
 
 # See https://danishpraka.sh/2018/09/27/shell-in-python.html (Accessed Aug 22)
 
-import cmd, os, sys, shutil
+import cmd, os, sys, shutil, pathlib
 
 from almost_make.utils.printUtil import cprint, FORMAT_COLORS
 import almost_make.utils.printUtil as printer
@@ -41,6 +41,12 @@ Send [text] to standard output.
 [options] can contain:
  -n\t\t Do not print a trailing newline.
  -e\t\t Evaluate escape characters (e.g. echo -ne \\n outputs a single newline).
+""",
+
+    "touch": """"Usage: touch [options] [files...]
+    Update the access and modification times for each file in files.
+Options:
+ -c, --no-create  Do not create the file if it does not exist.
 """
 }
 
@@ -146,6 +152,28 @@ def customLs(args, stdin, stdout, stderr, state):
 def customPwd(args, stdin, stdout, stderr, state):
     cprint(os.path.abspath(state.cwd or '.') + '\n', file=stdout)
 
+def customTouch(args, stdin, stdout, stderr, state):
+    args = parseArgs(args, 
+    {
+        'c': 'no-create'
+    }, 
+    strictlyFlags=
+    {
+        'no-create'
+    })
+
+    cwd = pathlib.Path(state.cwd or '.')
+    touchedCount = 0
+
+    for path in args['default']:
+        path = cwd.joinpath(path)
+
+        if path.is_file() or not 'no-create' in args:
+            path.touch()
+            touchedCount += 1
+    
+    return touchedCount != 0
+
 def customCd(args, stdin, stdout, stderr, state):
     oldCwd = state.cwd
 
@@ -221,6 +249,7 @@ def getCustomCommands(macros):
         result["dir"] = result["ls"]
         addCustomCommand("pwd", 1, customPwd)
         addCustomCommand("echo", 2, customEcho)
+        addCustomCommand("touch", 2, customTouch)
     
     return result
 

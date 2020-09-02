@@ -1,6 +1,11 @@
 
-## 0.1.0
- * Built-in `ls` doesn't use color when piped.
+## 0.0.15
+ * Built-in `ls`
+    * Doesn't use color when piped.
+    * Additional flags.
+    * Document flags (in output of `ls --help`)
+ * Added built-in `touch` command.
+ * Globbing expansions can be relative.
 
 ## 0.0.14
  * Stop using `os.chdir` to keep track of `cwd` in `almake_shell`.
@@ -14,6 +19,5 @@
  * Better built-in `ls` implementation.
 
 ## 0.0.12
-
  * Built-in shell can now be run via `almake_shell`
     * Make and shell bug-fixes.
