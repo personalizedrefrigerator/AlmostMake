@@ -1,10 +1,12 @@
 #!/usr/bin/python3
 
+import sys
+
 VERSION_STRING = "0.1.0"
 
-def printVersion():
-    print("AlmostMake v%s" % VERSION_STRING)
-    print("    This software is licensed to you under the BSD-3-Clause License, as printed below:")
+def printVersion(outFile = sys.stdout):
+    print("AlmostMake v%s" % VERSION_STRING, file=outFile)
+    print("    This software is licensed to you under the BSD-3-Clause License, as printed below:", file=outFile)
     print("""
 BSD 3-Clause License
 
@@ -35,6 +37,6 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-""")
-    print("------------------------")
-    print("This software should be available on GitHub! If you encounter issues or want to add functionality, submit issues and pull requests through https://github.com/personalizedrefrigerator/AlmostMake")
+""", file=outFile)
+    print("------------------------", file=outFile)
+    print("This software should be available on GitHub! If you encounter issues or want to add functionality, submit issues and pull requests through https://github.com/personalizedrefrigerator/AlmostMake", file=outFile)

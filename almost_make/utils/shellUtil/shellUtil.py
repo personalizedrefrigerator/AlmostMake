@@ -4,27 +4,39 @@
 
 import cmd, os, sys, shutil
 
-from almost_make.utils.printUtil import *
+from almost_make.utils.printUtil import cprint, FORMAT_COLORS
+import almost_make.utils.printUtil as printer
 from almost_make.utils.argsUtil import parseArgs
+from almost_make.version import printVersion
 import almost_make.utils.shellUtil.runner as runner
 import almost_make.utils.shellUtil.escapeParser as escapeParser
 
-SHELL_NAME = "AlmostMake's NotQuiteAShell"
+SHELL_NAME = "AlmostMake's built-in shell"
 
 QUICK_HELP = \
 {
-    "cd": """cd [directory]
-Change the current working directory to [directory].
-This command is provided by %s.""" % SHELL_NAME,
-    "exit": """exit [status]
+    "cd": """Usage: cd [directory]
+Change the current working directory to [directory].""",
+
+    "exit": """Usage: exit [status]
 Exit the current script/shell with status [status].
 If [status] is not provided, exit with code zero.""",
-    "ls": """ls [directory]
-Print the contents of [directory] or the current working
-directory.""",
-    "pwd": """pwd
+
+    "ls": """Usage: ls [options] [directories]
+Print the contents of each directory in [directories] 
+or the current working directory.
+[options] can contain:
+ -a, --all                   List all files, including '.' and '..'
+ -1, --one-per-line          Each file on its own line.
+ -Q, --quote-name            Surround the name of each file with double-quotes.
+ -m, --comma-separated-list  List files on a single line, as a comma-separated list.
+ -f, --unformatted           No color output, do not sort.
+ --color                     Force color output.""",
+
+    "pwd": """Usage: pwd
 Print the current working directory's absolute path.""",
-    "echo": """echo [options] [text]
+
+    "echo": """Usage: echo [options] [text]
 Send [text] to standard output.
 [options] can contain:
  -n\t\t Do not print a trailing newline.
@@ -35,6 +47,10 @@ Send [text] to standard output.
 def filterArgs(args, minimumLength, stdout):
     if len(args) < minimumLength or "--help" in args:
         cprint(QUICK_HELP[args[0]] + '\n', file=stdout)
+        cprint("This command is built into %s.\n" % SHELL_NAME)
+        return False
+    elif '--version' in args:
+        printVersion(printer.wrapFile(stdout))
         return False
     return True
 
@@ -80,7 +96,7 @@ def customLs(args, stdin, stdout, stderr, state):
             return
 
         if 'one-per-line' in args:
-            sep = '\n'
+            sep = not isLast and '\n' or ''
 
         if 'quote-name' in args:
             name = runner.quote(name, '"')
@@ -88,12 +104,16 @@ def customLs(args, stdin, stdout, stderr, state):
         if not isLast and 'comma-separated-list' in args:
             sep = ', '
 
+            if 'one-per-line' in args:
+                sep = ',\n'
+
         if 'unformatted' in args:
             cprint(name + sep, file=stdout)
         else:
             cprint(name + sep, color, file=stdout)
 
-    dirs.sort()
+    if not 'unformatted' in args:
+        dirs.sort()
 
     isFirst = True
 

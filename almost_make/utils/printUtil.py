@@ -24,13 +24,17 @@ class _FDWrap:
     def flush(self):
         pass
 
+# If file is None, default to stdout. If a number, 
+# wrap it in a file-like object.
+def wrapFile(fileOrFd):
+    if fileOrFd is None:
+        return sys.stdout
+    elif type(fileOrFd) == int:
+        return _FDWrap(fileOrFd)
+    return fileOrFd
+
 def cprint(text, color=None, file=sys.stdout):
-    # If file is None, default to stdout. If a number, 
-    # wrap it in a file-like object.
-    if file is None:
-        file = sys.stdout
-    elif type(file) == int:
-        file = _FDWrap(file)
+    file = wrapFile(file)
 
     if color in FORMAT_COLORS and FORMAT_OUTPUT:
         print(FORMAT_COLORS[color] + str(text) + FORMAT_RESET, end='', flush=True, file=file)
