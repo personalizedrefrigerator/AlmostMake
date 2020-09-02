@@ -1,6 +1,9 @@
 
 ## 0.0.16
  * Built-in `grep` and `cat` commands.
+ * Globbing bug-fixes.
+ * `.include`, `include`, `sinclude`, and `-include` directives.
+    * `.include` is not fully compatible with BSDMake.
 
 ## 0.0.15
  * Built-in `ls`
