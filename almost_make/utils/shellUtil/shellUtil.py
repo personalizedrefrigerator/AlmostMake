@@ -232,6 +232,9 @@ def customEcho(args, stdin, stdout, stderr, state):
     
     cprint(toPrint + printEnd, file=stdout)
 
+def customCat(args, stdin, stdout, stderr, state):
+    pass
+
 # Get a set of custom commands that can be used.
 def getCustomCommands(macros):
     result = {}

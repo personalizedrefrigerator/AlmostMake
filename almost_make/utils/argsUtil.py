@@ -3,21 +3,13 @@ import os, re, shlex
 SPACE_CHARS = re.compile('\\s')
 
 # Parse given arguments.
-# args: The list of arguments
-#    given to the program (i.e.
-#    from sys.argv). Note that
-# any default arguments (not immediately after 
-# a key) are put into a list under the
-# key defaultArgKey. If no default args,
-# the list is empty.
-# For example, 
-#    make 
-# If a given argument or its single-character
-# representative is in [strictlyFlags], it is
-# considered a flag -- non-argument text after
-# it is associated with [defaultArgKey], rather
-# than the argument. For example, if foo is in 
-# strictlyFlags, then [ ... --foo thing ...]
+# args: The list of arguments given to the program (e.g. from sys.argv). Note that
+# any default arguments (not immediately after  a key) are put into a list under the
+# key defaultArgKey. If no default args, the list is empty. For example, 
+# ['make'] -> {'default': []}. 
+# If a given argument or its single-character representative is in [strictlyFlags], it is
+# considered a flag -- non-argument text after it is associated with [defaultArgKey], rather
+# than the argument. For example, if foo is in  strictlyFlags, then [ ... --foo thing ...]
 # results in { ... 'foo': True, 'default': [... 'thing' ...] ... }.
 def parseArgs(args, 
         mappings = 
@@ -38,11 +30,11 @@ def parseArgs(args,
         if len(chunk) == 0:
             continue    
         
-        if chunk.startswith("--"):
+        if chunk.startswith("--") and len(chunk) > 2:
             if lastArgText:
                 result[lastArgText] = True
             lastArgText = chunk[2:]
-        elif chunk.startswith("-"):
+        elif chunk.startswith("-") and len(chunk) > 1:
             singleChars.extend(chunk[1:])
             
             if lastArgText:

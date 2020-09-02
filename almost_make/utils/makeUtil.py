@@ -1,4 +1,4 @@
-#!python
+#!/usr/bin/python3
 
 # Parses very simple Makefiles.
 # Useful Resources:
