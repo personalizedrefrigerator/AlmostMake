@@ -292,12 +292,48 @@ class MakeUtil:
                 if haltOnFail: # e.g. -rm foo should be silent even if it cannot remove foo.
                     self.errorUtil.reportError("Unable to run command:\n    ``%s``. \n\n  Message:\n%s" % (command, str(e)))
         return True
+    
+    # Handle all .include and include directives.
+    def handleIncludes(self, contents, macros):
+        lines = self.macroUtil.getLines(contents)
+        lines.reverse()
+
+        newLines = []
+        inRecipe = False
+
+        for line in lines:
+            if line.startswith(self.recipeStartChar):
+                inRecipe = True
+            elif inRecipe:
+                inRecipe = False
+            elif line.startswith('include ') or line.startswith('.include '):
+                parts = runner.shSplit(line)
+                parts = parts[1:] # Remove leading include...
+
+                for fileName in parts:
+                    fileName = runner.stripQuotes(fileName)
+
+                    if not os.path.exists(fileName):
+                        self.errorUtil.reportError("File %s does not exist. Context: %s" % (fileName, line))
+                        return (contents, macros)
+                    
+                    with open(fileName, 'r') as file:
+                        contents = file.read().split('\n')
+                        contents.reverse()
+
+                        newLines.extend(contents)
+            newLines.append(line)
+
+        newLines.reverse()
+
+        return self.macroUtil.expandAndDefineMacros("\n".join(newLines), macros)
 
     # Run commands specified to generate
     # dependencies of target by the contents
     # of the makefile given in contents.
     def runMakefile(self, contents, target = '', defaultMacros={ "MAKE": "almake" }, overrideMacros={}):
         contents, macros = self.macroUtil.expandAndDefineMacros(contents, defaultMacros)
+        contents, macros = self.handleIncludes(contents, macros)
         targetRecipes, targets = self.getTargetActions(contents)
 
         if target == '' and len(targets) > 0:

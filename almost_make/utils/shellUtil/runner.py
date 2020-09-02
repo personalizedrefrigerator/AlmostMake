@@ -338,6 +338,7 @@ def evalCommand(orderedCommand, customCommands={}, flags=[], stdin=None, stdout=
     else:
         raise SyntaxError("Too many parts to expression, %s" % str(orderedCommand))
 
+# Like shlex.split with punctuation grouping, but groups punctuation intelligently.
 def shSplit(text):
     escaped = False
     inQuote = None

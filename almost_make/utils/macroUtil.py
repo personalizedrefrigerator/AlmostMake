@@ -3,7 +3,6 @@
 # Macro parsing utilities.
 
 import re, os
-from almost_make.utils.printUtil import *
 import almost_make.utils.errorUtil as errorUtil
 
 # Regular expressions:
@@ -146,7 +145,6 @@ class MacroUtil:
         expanded = ''
         buff = ''
         afterBuff = ''
-        prev = ''
         parenLevel = 0
         inMacro = False
         buffFromMacro = False
@@ -193,7 +191,6 @@ class MacroUtil:
 #               print("Expanded to %s." % (buff + afterBuff))
                 buff = ''
                 afterBuff = ''
-            prev = c
         
         if parenLevel > 0:
             self.errorLogger.reportError("Unclosed parenthesis: %s" % line)
@@ -203,7 +200,7 @@ class MacroUtil:
         return expanded
 
     # Expand and handle macro definitions 
-    # in [contents].
+    # in [contents]. This includes removing end-of-line comments.
     def expandAndDefineMacros(self, contents, macros = {}):
         lines = self.getLines(contents)
         result = ''
