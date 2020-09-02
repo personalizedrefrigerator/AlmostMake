@@ -55,6 +55,18 @@ Options:
  -n, --number    Number each line.
  -T, --show-tabs Replace all tab characters with ^T.
  -E, --show-ends Print a $ at the end of each line.
+""",
+    "grep": """Usage: grep [options] PATTERN
+Search for PATTERN in standard input.
+Options:
+ -F, --fixed-strings   Treat PATTERN as a fixed string, rather than a regular expression.
+ -i, --ignore-case     Do case-insensitive matching.
+ -v, --invert-match    Count and print (print depends on other options) lines that do not match PATTERN.
+ -c, --count           Print the count of matching lines, rather than the contents of the lines.
+ -q, --quiet           Limit output.
+ -x, --line-regexp     PATTERN must match each line in its entirety.
+ -o, --only-matching   Only output portions of the line that match PATTERN. Ignored if --line-regexp or -x are given.
+ -n, --line-number     Prefix each printed-line with a line number.
 """
 }
 
@@ -298,7 +310,7 @@ def customCat(args, stdin, stdout, stderr, state):
                     lineNu += 1
                     logLine(line)
 
-def customGrep(args, stdin, stdout, stderr):
+def customGrep(args, stdin, stdout, stderr, state):
     args = parseArgs(args,
     {
         'F': 'fixed-strings',
@@ -313,7 +325,8 @@ def customGrep(args, stdin, stdout, stderr):
     strictlyFlags=
     {
         'fixed-strings', 'ignore-case', 'invert-match',
-        'count', 'quiet'
+        'count', 'quiet', 'line-regexp', 'only-matching',
+        'line-number'
     })
 
     if len(args['default']) > 1:
@@ -346,7 +359,7 @@ def customGrep(args, stdin, stdout, stderr):
                 matchInfo = pattern.fullmatch(line)
 
             if matchInfo != None:
-                matches.append(matchInfo.span)
+                matches.append(matchInfo.span())
         return matches
     
     stdin = printer.wrapFile(stdin)
@@ -374,9 +387,9 @@ def customGrep(args, stdin, stdout, stderr):
                         cprint(line[start:stop] + '\n', file=stdout)
     
     if 'count' in args:
-        cprint(matchCount + '\n', file=stdout)
+        cprint(str(matchCount) + '\n', file=stdout)
     
-    return matchCount
+    return matchCount > 0
 
 # Get a set of custom commands that can be used.
 def getCustomCommands(macros):
@@ -397,6 +410,7 @@ def getCustomCommands(macros):
         addCustomCommand("echo", 2, customEcho)
         addCustomCommand("touch", 2, customTouch)
         addCustomCommand("cat", 2, customCat)
+        addCustomCommand("grep", 2, customGrep)
     
     return result
 
@@ -417,86 +431,83 @@ if __name__ == "__main__":
     def assertEql(a, b, message):
         if a != b:
             raise Exception("%s != %s (%s)" % (str(a), str(b), message))
+    
+    def assertNotEql(a, b, message):
+        if a == b:
+            raise Exception("%s == %s (%s)" % (str(a), str(b), message))
 
     testDir = os.path.dirname(__file__)
 
     if testDir != '':
         os.chdir(testDir)
 
-    result, _ = evalScript("ls | grep __init__.py", macroUtil,
+    macros = \
     {
         "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    }
+
+    result, _ = evalScript("ls | grep __init__.py", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test ls and grep in current directory for __init__.")
 
-    result, _ = evalScript("ls -f | grep -F ..", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("ls -f | grep -F ..", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test ls with -f flag.")
 
-    result, _ = evalScript("ls -f . | grep -F ..", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("ls -f . | grep -F ..", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test ls with provided directory")
 
-    result, _ = evalScript("ls -f ./ ../ | grep -F argsUtil.py", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("ls -f ./ ../ | grep -F argsUtil.py", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test ls with provided directories (1 of 2)")
 
-    result, _ = evalScript("ls -f ./ ../ | grep -F escapeParser.py", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("ls -f ./ ../ | grep -F escapeParser.py", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test ls with provided directories (2 of 2)")
 
-    result, _ = evalScript("echo -e 'F\\noo' | grep ^F$", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("echo -e 'F\\noo' | grep ^F$", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test echo's -e flag.")
 
-    result, _ = evalScript("echo test | cat - | grep test", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("echo test | cat - | grep test", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test cat from stdin")
 
-    result, _ = evalScript("echo -e 'test\nfoo' | cat -n - | grep -F 2", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("echo -e 'test\\nfoo' | cat -n - | grep -F 2", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test -n flag for cat (line numbers)")
 
-    result, _ = evalScript("echo -e 'test\n\tfoo' | cat -T - | grep \\^Tfoo", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("echo -e 'test\\n\\tfoo' | cat -T - | grep \\^Tfoo", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test -T flag for cat (tab->^T)")
 
-    result, _ = evalScript("echo -e 'test\n\tfoo' | cat -TE - | grep '\\^Tfoo\\$$'", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("echo -e 'test\\n\\tfoo' | cat -TE - | grep '\\^Tfoo\\$$'", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test -E flag for cat (ending $)")
 
-    result, _ = evalScript("cat __init__.py | grep '__all__'", macroUtil,
-    {
-        "_CUSTOM_BASE_COMMANDS": True
-    },
-    defaultFlags=[])
+    result, _ = evalScript("cat __init__.py | grep '__all__'", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test cat [filename].")
 
+    result, _ = evalScript("echo nothing | grep 'should not find anything'", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 1, "Test grep failure.")
+
+    result, _ = evalScript("echo nothing | grep 'o[th]+ing$'", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep simple regexp.")
+
+    result, _ = evalScript("echo nothing | grep -x noth", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 1, "Test grep full-line match failure.")
+
+    result, _ = evalScript("echo '' | grep -x .*", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test (very simple) grep full-line match success.")
+
+    result, _ = evalScript("echo nothing | grep -Fx nothing", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep full-line match success (with -F).")
+
+    result, _ = evalScript("echo nothing | grep -x nothing", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep full-line match success.")
+
+    result, _ = evalScript("echo -e 'a\\nbcd\\nefg' | grep -Fv 'nothing'", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep invert-match success.")
+
+    result, _ = evalScript("echo textthenfood | grep -o foo | grep -Fx foo", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep only-match success.")
+
+    result, _ = evalScript("echo textthenfood | grep -c foo | grep -Fx 1", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep count (1).")
+
+    result, _ = evalScript("echo -e 'textthenfood\\nfoo' | grep -c foo | grep -Fx 2", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep count (2).")
+
+    result, _ = evalScript("echo -e 'textthenfood\\nfoo' | grep -n foo | cat -T - | grep -Fx 2^Tfoo", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test grep line number (2).")
