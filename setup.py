@@ -18,8 +18,14 @@ setuptools.setup(
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
+        "Development Status :: 3 - Alpha",
+
         "Operating System :: OS Independent",
-        "Development Status :: 3 - Alpha"
+
+        "Intended Audience :: Developers",
+        "Intended Audience :: System Administrators",
+
+        "Environment :: Console"
     ],
     keywords=['make', 'almake', 'bsdmake', 'gnumake', 'Makefile', 'cli'],
     entry_points={
