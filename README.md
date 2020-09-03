@@ -42,6 +42,7 @@ test%:
 
 all:
 
+# Note: As of v0.0.19, chmod is not built-in.
 check: all
 	chmod u+x main
 	$(EXEC_PROGRAM) ./main | grep PASS
@@ -52,7 +53,6 @@ clean:
 	-rm -f main.o
 	-rm -f main
 
-# We generate main.o because ths is a test makefile.
 main: main.o
 	$(CC) main.c -o main
 
@@ -168,6 +168,21 @@ You may also need to install `setuptools`, `wheel`, and `twine`. [See Packaging 
 $ python3 -m pip install --user --upgrade setuptools wheel twine
 ```
 
+## Notable Missing Features
+
+At present, `AlmostMake` **does not support** the following, notable features.
+
+In `almake`:
+ * `VPATH`
+ * `$(patsubst ...)`
+ * `$(shell ...)` that can use `almake_shell`
+ * Conditionals
+ * BSD-style `.include < ... >` includes
+
+In `almake_shell`/built-in shell:
+ * `if` statements, loops, functions.
+ * Built-in `chmod`
+
 ## Testing
 
 To test AlmostMake, run,
@@ -180,8 +195,10 @@ Note, however, that `make test` depends on `make install`.
 ## Supported Platforms
 
 At present, it has been tested on the following platforms:
- - Ubuntu with Python 3.8, AlmostMake v0.0.19. All tests pass.
+ - Ubuntu with Python 3.8, AlmostMake v0.1.0. All tests pass.
  - Debian with Python 3.7, older AlmostMake. All tests pass.
- - iOS via [a-Shell](https://github.com/holzschu/a-shell), AlmostMake v0.0.18. Failing tests.
+ - iOS via [a-Shell](https://github.com/holzschu/a-shell), AlmostMake v0.0.19. Failing tests.
 
 If you find that AlmostMake works on a platform not listed here, please consider [creating an issue and/or submitting a pull request to update the list of supported platforms and versions of Python](https://github.com/personalizedrefrigerator/AlmostMake/issues/new)!
+
+If AlmostMake doesn't work for you, you may wish to try [PyMake](https://pypi.org/project/py-make/). This package appears to support a wider range of Python versions and platforms, but may have fewer features.

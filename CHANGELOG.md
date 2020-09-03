@@ -1,4 +1,7 @@
 
+## 0.1.0
+ * Improved `README`.
+
 ## 0.0.19
  * Built-in `mkdir` and `rm` commands.
  * `$(wildcard ...)` function available in `almake`.
