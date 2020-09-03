@@ -28,6 +28,8 @@ testMacroConditionalSet:
 	echo $(CONDITIONALLY_SET) | grep "I am set!"
 
 testMacroCommands:
+	@echo "---- Testing macro commands ----"
+	$(MAKE) -C macroCommands
 	OUT=$(MAKE) -C macroCommands;\
 	echo $$(OUT) | grep -F 'a.txt';\
 	echo $$(OUT) | grep -F 'b.txt';\

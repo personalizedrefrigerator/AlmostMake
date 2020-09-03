@@ -111,6 +111,7 @@ def quote(text, quoteChar="'"):
         result += char
 
     return quoteChar + result + quoteChar
+
 # Return whether text begins and ends with the same quoting character,
 # **and** the quoting is un-interupted. For example, "a, b, c" -> True,
 # "a, b, c' -> False, "a, b," "c" -> False.
@@ -309,7 +310,14 @@ def evalCommand(orderedCommand, customCommands={}, flags=[], stdin=None, stdout=
             
             os.close(fdIn)
 
-            return right
+            if type(left) != int:
+                left.communicate()
+                left = left.returncode
+
+            if left == 0:
+                return right
+            
+            return left
         elif operator == '>':
             outfd = os.open(os.path.abspath(" ".join(orderedCommand[2])), os.O_WRONLY | os.O_CREAT, mode=PIPE_OUT_PERMISSIONS)
 
