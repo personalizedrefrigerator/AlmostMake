@@ -2,6 +2,7 @@
 ## 0.0.19
  * Built-in `mkdir` and `rm` commands.
  * `$(wildcard ...)` function available in `almake`.
+ * Misc. bug fixes 
 
 ## 0.0.18
  * Oops! `FORMAT_COLORS['red']` is bad! Use `FORMAT_COLORS['RED']` instead!
