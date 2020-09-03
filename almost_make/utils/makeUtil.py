@@ -19,7 +19,7 @@ import almost_make.utils.shellUtil.globber as globber
 import almost_make.utils.errorUtil as errorUtility
 
 # Regular expressions
-SPACE_CHARS = re.compile(r'\s')
+SPACE_CHARS = re.compile(r'\s+')
 INCLUDE_DIRECTIVE_EXP = re.compile(r"^\s*(include|\.include|-include|sinclude)")
 
 # Targets that are used by this parser/should be ignored.
@@ -41,7 +41,9 @@ class MakeUtil:
 
     def __init__(self):
         self.macroCommands["shell"] = lambda code, macros: os.popen(code).read().rstrip(' \n\r\t') # To-do: Use the built-in shell if specified...
-        self.macroCommands["wildcard"] = lambda argstring, macros: " ".join([ shlex.quote(part) for part in globber.glob(argstring) ])
+        self.macroCommands["wildcard"] = lambda argstring, macros: " ".join([ shlex.quote(part) for part in globber.glob(argstring, '.') ])
+        self.macroCommands["words"] = lambda argstring, macros: str(len(SPACE_CHARS.split(argstring)))
+        self.macroCommands["sort"] = lambda argstring, macros: " ".join(sorted(list(set(SPACE_CHARS.split(argstring)))))
 
         self.errorUtil = errorUtility.ErrorUtil()
         self.macroUtil = macroUtility.MacroUtil()
@@ -274,6 +276,9 @@ class MakeUtil:
             haltOnFail = not command.startswith("-")
             if command.startswith("-"):
                 command = command[1:]
+            
+            origDir = os.getcwd()
+
             try:
                 status = 0
                 
@@ -294,6 +299,11 @@ class MakeUtil:
             except Exception as e:
                 if haltOnFail: # e.g. -rm foo should be silent even if it cannot remove foo.
                     self.errorUtil.reportError("Unable to run command:\n    ``%s``. \n\n  Message:\n%s" % (command, str(e)))
+            finally:
+                # We should not switch directories, regardless of the command's result.
+                # Some platforms (e.g. a-Shell) do not reset the cwd after child processes exit.
+                if os.getcwd() != origDir:
+                    os.chdir(origDir)
         return True
     
     # Handle all .include and include directives.
