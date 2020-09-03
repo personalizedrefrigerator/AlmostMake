@@ -2,7 +2,7 @@
 
 import sys
 
-VERSION_STRING = "0.0.19"
+VERSION_STRING = "0.1.0"
 
 def printVersion(outFile = sys.stdout):
     print("AlmostMake v%s" % VERSION_STRING, file=outFile)
