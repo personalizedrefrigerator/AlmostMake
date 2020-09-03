@@ -157,7 +157,7 @@ class MacroUtil:
                 expanded += buff
                 buff = ''
                 inMacro = True
-            elif c == '$' and parenLevel == 0 and inMacro and buff == '$':
+            elif c == '$' and parenLevel == 0 and inMacro and buff == '':
                 inMacro = False
                 expanded += '$'
             elif (c == '(' or c == '{') and inMacro:
@@ -241,8 +241,8 @@ class MacroUtil:
 #                    print("Expansion defered: %s = %s" % (name, definedTo))
                         macros[name] = concatWith + definedTo.rstrip('\n')
                     
-                    if exporting:
-                        os.environ[name] = macros[name]
+                if exporting:
+                    os.environ[name] = macros[name]
 #            print("%s defined to %s" % (name, macros[name]))
             elif self.isMacroInvoke(line) and not self.shouldLazyEval(line):
                 result += self.expandMacroUsages(line, macros)

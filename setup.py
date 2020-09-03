@@ -19,8 +19,9 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
-        "Development Status :: 2 - Pre-Alpha"
+        "Development Status :: 3 - Alpha"
     ],
+    tags=['make', 'almake', 'bsdmake', 'gnumake', 'Makefile', 'cli'],
     entry_points={
         "console_scripts": [
             "almake = almost_make.cli:main",

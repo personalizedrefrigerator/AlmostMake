@@ -247,7 +247,7 @@ def rawRun(args, customCommands={}, flags=[], stdin=None, stdout=None, stderr=No
     if len(args) == 0:
         return 0
     
-    sysShell = SYSTEM_SHELL in flags or None
+    sysShell = SYSTEM_SHELL in flags
 
     if not sysShell:
         args = globArgs(args, state)

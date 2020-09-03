@@ -1,4 +1,16 @@
 
+## 0.0.19
+ * Built-in `mkdir` and `rm` commands.
+ * `$(wildcard ...)` function available in `almake`.
+ * Misc. bug fixes 
+
+## 0.0.18
+ * Oops! `FORMAT_COLORS['red']` is bad! Use `FORMAT_COLORS['RED']` instead!
+    * In some places, output was colorized using `FORMAT_COLORS['red']`. There is no key, `red` in `FORMAT_COLORS`. As such, when logging was to occur, a very-confusing error message was displayed when caught, namely, `'red'`!
+
+## 0.0.17
+ * Shell-related bug fixes.
+
 ## 0.0.16
  * Built-in `grep` and `cat` commands.
  * Globbing bug-fixes.

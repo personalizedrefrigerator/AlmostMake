@@ -1,4 +1,3 @@
-#!make
 # To be run with AlmostMake.
 include *.mk
 
@@ -7,8 +6,8 @@ include *.mk
 all: testSimple testPhony testMacros testRecursion testParallel testMisc
 
 test%:
-	$(MAKE) -C $@ clean $(SEND_MACROS)
-	$(MAKE) -C $@ check $(SEND_MACROS)
-	$(MAKE) -C $@ clean $(SEND_MACROS)
+	$(MAKE) -C $@ clean
+	$(MAKE) -C $@ check
+	$(MAKE) -C $@ clean
 
 .PHONY: testSimple testPhony testMacros testRecursion testParallel testMisc
