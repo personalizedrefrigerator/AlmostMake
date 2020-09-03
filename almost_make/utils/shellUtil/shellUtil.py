@@ -71,6 +71,21 @@ Options:
  -o, --only-matching   Only output portions of the line that match PATTERN. Ignored if --line-regexp or -x are given.
  -n, --line-number     Prefix each printed-line with a line number.
  --no-color            Force uncolorized output.
+""",
+    "rm": """Usage: rm [options] files...
+Remove all files in [files...]. Note that unlike many implementations of
+rm, this implementation never requests confirmation from the user.
+Options:
+ -f, --force         Ignore nonexistent paths.
+ -r, -R, --recursive Recursively remove directories and their contents.
+ -d, --dir           Remove empty directories.
+""",
+    "mkdir": """Usage: mkdir [options] directories...
+Make new directories, [directories]. Given directories should not exist.
+Options:
+ -m, --mode     The mode of the new directory, as an octal number (e.g. 777).
+ -p, --parents  Create parent directories as needed. Do not fail if any of [directories] do not exist.
+ -v, --verbose  Print a message before creating each directory.
 """
 }
 
@@ -435,6 +450,106 @@ def customGrep(args, stdin, stdout, stderr, state):
     
     return matchCount > 0
 
+def customRm(args, stdin, stdout, stderr, state):
+    args = parseArgs(args,
+    {
+        'r': 'recursive',
+        'R': 'recursive',
+        'f': 'force',
+        'd': 'dir'
+    }, 
+    strictlyFlags=
+    {
+        'recursive',
+        'force',
+        'dir'
+    })
+
+    toRemove = [ os.path.join(state.cwd or '.', arg) for arg in args['default'] ]
+    success = True
+
+    while len(toRemove) > 0:
+        filepath = os.path.abspath(os.path.normcase(os.path.normpath(toRemove.pop())))
+
+        if os.path.isdir(filepath):
+            if not 'dir' in args and not 'recursive' in args:
+                cprint("Refusing to remove %s because it is a directory.\n" % filepath, FORMAT_COLORS['RED'], stderr)
+                success = False
+                continue
+            
+            filesInDir = os.listdir(filepath)
+
+            if len(filesInDir) == 0:
+                os.rmdir(filepath)
+                continue
+
+            if not 'recursive' in args:
+                cprint("Refusing to remove non-empty directory %s.\n" % filepath, FORMAT_COLORS['RED'], stderr)
+                success = False
+                continue
+            
+            toRemove.extend([ os.path.join(filepath, filename) for filename in filesInDir ])
+        elif os.path.isfile(filepath):
+            os.remove(filepath)
+        elif not os.path.exists(filepath) and not 'force' in args:
+            cprint("%s does not exist.\n" % filepath, FORMAT_COLORS['RED'], stderr)
+            success = False
+        elif not 'force' in args:
+            cprint('Refusing to remove entity of unknown type: %s.\n' % filepath, FORMAT_COLORS['RED'], stderr)
+            success = False
+    return success
+
+def customMkdir(args, stdin, stdout, stderr, state):
+    args = parseArgs(args,
+    {
+        'm': 'mode',
+        'p': 'parents',
+        'v': 'verbose'
+    },
+    strictlyFlags=
+    {
+        'parents', 'verbose'
+    })
+
+    mode = 0o664
+    success = True
+
+    if 'mode' in args:
+        try:
+            mode = int(mode, 8)
+        except ValueError as ex:
+            cprint("Unable to parse mode: " + str(ex) + "\n", FORMAT_COLORS['RED'], stderr)
+            return False
+
+    for filepath in args['default']:
+        filepath = os.path.abspath(os.path.normpath(os.path.normcase(os.path.join(state.cwd or '.', filepath))))
+
+        if 'verbose' in args:
+            cprint('Creating %s...\n' % filepath, file=stdout)
+        
+        try:
+            if 'parents' in args:
+                os.mkdirs(filepath, mode)
+            else:
+                path = pathlib.Path(filepath)
+                if not path.parent.exists():
+                    cprint("Parent directory of %s does not exist.\n" % filepath, FORMAT_COLORS['RED'], stderr)
+                    success = False
+                    continue
+
+                os.mkdir(filepath, mode)
+        except FileExistsError as ex:
+            if not 'parents' in args:
+                cprint("Unable to create directory %s. File exists.\n" % filepath, FORMAT_COLORS['RED'], stderr)
+                success = False
+            else:
+                continue
+    
+    return success
+        
+def customChmod(args, stdin, stdout, stderr, state):
+    pass
+
 # Get a set of custom commands that can be used.
 def getCustomCommands(macros):
     result = {}
@@ -455,6 +570,8 @@ def getCustomCommands(macros):
         addCustomCommand("touch", 2, customTouch)
         addCustomCommand("cat", 2, customCat)
         addCustomCommand("grep", 2, customGrep)
+        addCustomCommand("rm", 2, customRm)
+        addCustomCommand("mkdir", 2, customMkdir)
     
     return result
 
