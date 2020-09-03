@@ -306,6 +306,7 @@ def customCat(args, stdin, stdout, stderr, state):
         cprint(str(line) + end + "\n", file=stdout)
 
     stdin = printer.wrapFile(stdin)
+    success = True
     
     for arg in args['default']:
         if arg == '-':
@@ -322,10 +323,14 @@ def customCat(args, stdin, stdout, stderr, state):
 
             if not os.path.exists(filename):
                 cprint("File %s does not exist.\n" % filename, color=printer.FORMAT_COLORS["RED"], file=stderr)
-                return False
+                success = False
+
+                continue
             if not os.path.isfile(filename):
                 cprint("Path %s is not a file.\n" % filename, color=printer.FORMAT_COLORS["RED"], file=stderr)
-                return False
+                success = False
+
+                continue
             
             with open(filename, 'r') as file:
                 lines = file.read().split('\n')
@@ -342,6 +347,7 @@ def customCat(args, stdin, stdout, stderr, state):
                             logLine(line.decode('ascii'))
                     else:
                         logLine(line)
+    return success
 
 def customGrep(args, stdin, stdout, stderr, state):
     args = parseArgs(args,
