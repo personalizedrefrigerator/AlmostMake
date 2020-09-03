@@ -126,8 +126,10 @@ def customLs(args, stdin, stdout, stderr, state):
         'color'
     })
 
-    if 'default' in args and len(args['default']) > 0:
-        dirs = list(map(os.path.abspath, args['default']))
+    cwd = state.cwd or '.'
+
+    if len(args['default']) > 0:
+        dirs = [ os.path.abspath(os.path.join(cwd, os.path.normcase(arg))) for arg in args['default'] ]
     
     def noteEntry(name, color, isLast = False):
         decolorized = False # If we decolorize, do other formatting...
@@ -139,12 +141,14 @@ def customLs(args, stdin, stdout, stderr, state):
             decolorized = True
             color = None
 
+        multiLine = decolorized and not 'comma-separated-list' in args or 'one-per-line' in args
+
         sep = '  '
 
         if (not 'all' in args and not 'unformatted' in args) and name.startswith('.'):
             return
 
-        if 'one-per-line' in args or decolorized:
+        if multiLine:
             sep = not isLast and '\n' or ''
 
         if 'quote-name' in args:
@@ -153,7 +157,7 @@ def customLs(args, stdin, stdout, stderr, state):
         if not isLast and 'comma-separated-list' in args:
             sep = ', '
 
-            if 'one-per-line' in args or decolorized:
+            if multiLine:
                 sep = ',\n'
 
         if 'unformatted' in args:
@@ -395,7 +399,7 @@ def customGrep(args, stdin, stdout, stderr, state):
     lines = stdin.read().split('\n')
 
     # Input is from stdin... There is often a trailing newline...
-    if len(lines) > 0 and lines[-1] == '\n':
+    if len(lines) > 0 and lines[-1] == '':
         lines = lines[:-1]
 
     lineNumber = 0
@@ -487,7 +491,9 @@ def customRm(args, stdin, stdout, stderr, state):
                 cprint("Refusing to remove non-empty directory %s.\n" % filepath, FORMAT_COLORS['RED'], stderr)
                 success = False
                 continue
-            
+
+            # We need to re-consider filepath after removing its contents.
+            toRemove.append(filepath)
             toRemove.extend([ os.path.join(filepath, filename) for filename in filesInDir ])
         elif os.path.isfile(filepath):
             os.remove(filepath)
@@ -529,7 +535,7 @@ def customMkdir(args, stdin, stdout, stderr, state):
         
         try:
             if 'parents' in args:
-                os.mkdirs(filepath, mode)
+                os.makedirs(filepath, mode)
             else:
                 path = pathlib.Path(filepath)
                 if not path.parent.exists():
@@ -672,3 +678,12 @@ if __name__ == "__main__":
 
     result, _ = evalScript("echo -e 'textthenfood\\nfoo' | grep -n foo | cat -T - | grep -Fx 2^Tfoo", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test grep line number (2).")
+
+    result, _ = evalScript("mkdir foo && rm -d foo && ls -m | grep -v foo", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Test add and remove a directory.")
+
+    result, _ = evalScript("mkdir __pycache__ 2>&1", macroUtil, macros, defaultFlags=[])
+    assertNotEql(result, 0, "Test fails on attempt to create existing directory.")
+
+    result, _ = evalScript("mkdir -p testing123/a/b/c/d/e/f && rm -r testing123 && ls -m | grep -v testing123", macroUtil, macros, defaultFlags=[])
+    assertEql(result, 0, "Remove recursively, makedir recursively.")

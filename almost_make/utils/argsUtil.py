@@ -89,7 +89,7 @@ def fillArgsFromEnv(argList, envVariable, mappings, defaultArgKey='default', giv
     secondMap = givenOverridesNew and argList or argsFromEnv
     
     for key in firstMap:
-        if key != defaultArgKey:
+        if key != defaultArgKey: # We don't want to put default into the result, only to have it be over-written!
             result[key] = firstMap[key]
     
     for key in secondMap:
@@ -99,6 +99,8 @@ def fillArgsFromEnv(argList, envVariable, mappings, defaultArgKey='default', giv
     defaultSet = set()
     result[defaultArgKey] = []
 
+    # Handle default arguments seperately. Only add an argument if it
+    # hasn't already been given.
     for val in firstMap[defaultArgKey]:
         if not val in defaultSet:
             result[defaultArgKey].append(val)
