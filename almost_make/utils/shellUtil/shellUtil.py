@@ -302,10 +302,10 @@ def customCat(args, stdin, stdout, stderr, state):
             filename = os.path.join(state.cwd or '.', arg)
 
             if not os.path.exists(filename):
-                cprint("File %s does not exist.\n", printer.FORMAT_COLORS["red"], file=stderr)
+                cprint("File %s does not exist.\n" % filename, color=printer.FORMAT_COLORS["RED"], file=stderr)
                 return False
             if not os.path.isfile(filename):
-                cprint("Path %s is not a file.\n", printer.FORMAT_COLORS["red"], file=stderr)
+                cprint("Path %s is not a file.\n" % filename, color=printer.FORMAT_COLORS["RED"], file=stderr)
                 return False
             
             with open(filename, 'r') as file:
@@ -316,7 +316,10 @@ def customCat(args, stdin, stdout, stderr, state):
 
                 for line in lines:
                     lineNu += 1
-                    logLine(line)
+                    try:
+                        logLine(line.decode('utf-8'))
+                    except: # Fall back to ascii...
+                        logLine(line.decode('ascii'))
 
 def customGrep(args, stdin, stdout, stderr, state):
     args = parseArgs(args,
@@ -338,7 +341,7 @@ def customGrep(args, stdin, stdout, stderr, state):
     })
 
     if len(args['default']) > 1:
-        cprint("[Files...] is currently unsupported. Input should be given via stdin.\n", printer.FORMAT_COLORS['red'], file=stderr)
+        cprint("[Files...] is currently unsupported. Input should be given via stdin.\n", printer.FORMAT_COLORS['RED'], file=stderr)
         return False
     
     patterns = []
