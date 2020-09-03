@@ -1,4 +1,5 @@
 import os, re, shlex
+import almost_make.utils.shellUtil.runner as runner
 
 SPACE_CHARS = re.compile('\\s')
 
@@ -77,7 +78,7 @@ def fillArgsFromEnv(argList, envVariable, mappings, defaultArgKey='default', giv
         return argList
     
     # Get the argument mapping from the environment variable...
-    envArgList = shlex.split(os.environ[envVariable])
+    envArgList = runner.shSplit(os.environ[envVariable])
     argsFromEnv = parseArgs(envArgList, mappings, defaultArgKey, excludeFilename = False)
 
     result = {}
@@ -88,11 +89,26 @@ def fillArgsFromEnv(argList, envVariable, mappings, defaultArgKey='default', giv
     secondMap = givenOverridesNew and argList or argsFromEnv
     
     for key in firstMap:
-        result[key] = firstMap[key]
+        if key != defaultArgKey:
+            result[key] = firstMap[key]
     
     for key in secondMap:
-        result[key] = secondMap[key]
+        if key != defaultArgKey:
+            result[key] = secondMap[key]
     
+    defaultSet = set()
+    result[defaultArgKey] = []
+
+    for val in firstMap[defaultArgKey]:
+        if not val in defaultSet:
+            result[defaultArgKey].append(val)
+            defaultSet.add(val)
+
+    for val in secondMap[defaultArgKey]:
+        if not val in defaultSet:
+            result[defaultArgKey].append(val)
+            defaultSet.add(val)
+
     return result
 
 # Save the list of arguments specified by [argMap]

@@ -241,8 +241,9 @@ class MacroUtil:
 #                    print("Expansion defered: %s = %s" % (name, definedTo))
                         macros[name] = concatWith + definedTo.rstrip('\n')
                     
-                    if exporting:
-                        os.environ[name] = macros[name]
+                if exporting:
+                    os.environ[name] = macros[name]
+                    print("Exported " + str(name) + "; " + str(os.environ[name]))
 #            print("%s defined to %s" % (name, macros[name]))
             elif self.isMacroInvoke(line) and not self.shouldLazyEval(line):
                 result += self.expandMacroUsages(line, macros)
