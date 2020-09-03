@@ -157,7 +157,7 @@ class MacroUtil:
                 expanded += buff
                 buff = ''
                 inMacro = True
-            elif c == '$' and parenLevel == 0 and inMacro and buff == '$':
+            elif c == '$' and parenLevel == 0 and inMacro and buff == '':
                 inMacro = False
                 expanded += '$'
             elif (c == '(' or c == '{') and inMacro:

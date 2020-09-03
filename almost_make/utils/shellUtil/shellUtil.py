@@ -316,10 +316,13 @@ def customCat(args, stdin, stdout, stderr, state):
 
                 for line in lines:
                     lineNu += 1
-                    try:
-                        logLine(line.decode('utf-8'))
-                    except: # Fall back to ascii...
-                        logLine(line.decode('ascii'))
+                    if type(line) == bytes:
+                        try:
+                            logLine(line.decode('utf-8'))
+                        except: # Fall back to ascii...
+                            logLine(line.decode('ascii'))
+                    else:
+                        logLine(line)
 
 def customGrep(args, stdin, stdout, stderr, state):
     args = parseArgs(args,

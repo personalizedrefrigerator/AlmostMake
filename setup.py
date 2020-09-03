@@ -21,6 +21,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
         "Development Status :: 2 - Pre-Alpha"
     ],
+    tags=['make', 'almake', 'bsdmake', 'gnumake', 'Makefile', 'cli'],
     entry_points={
         "console_scripts": [
             "almake = almost_make.cli:main",

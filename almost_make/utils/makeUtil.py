@@ -6,7 +6,7 @@
 #  - GNUMake: https://www.gnu.org/software/make/manual/make.html Accessed August 22, 2020
 #  - BSDMake:  http://khmere.com/freebsd_book/html/ch01.html Accessed Aug 22 2020 
 
-import re, sys, os, subprocess, time, threading
+import re, sys, os, subprocess, time, threading, shlex
 # from concurrent.futures import ThreadPoolExecutor # We are **not** using this because adding an 
 #                                                   # executor to the queue when in an executed thread can cause deadlock! See 
 #                                                   # https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor
@@ -40,7 +40,8 @@ class MakeUtil:
     justPrint = False # Print commands, without evaluating.
 
     def __init__(self):
-        self.macroCommands["shell"] = lambda code, macros: os.popen(code).read().rstrip(' \n\r\t')
+        self.macroCommands["shell"] = lambda code, macros: os.popen(code).read().rstrip(' \n\r\t') # To-do: Use the built-in shell if specified...
+        self.macroCommands["wildcard"] = lambda argstring, macros: " ".join([ shlex.quote(part) for part in globber.glob(argstring) ])
 
         self.errorUtil = errorUtility.ErrorUtil()
         self.macroUtil = macroUtility.MacroUtil()
