@@ -94,22 +94,22 @@ Additional options are documented through `almake`'s helptext:
 ```sh
 $ almake --help
 Help: 
- Summary: Satisfy dependencies of a target in a makefile. This parser is not quite POSIX compliant, but should be able to parse simple makefiles.
+ Summary: Satisfy dependencies of a target in a makefile. This parser is not quite POSIX-compliant, but should be able to parse simple makefiles.
  Usage: almake [targets...] [options]
   where each target in targets is a valid target and options include:
-    -h, --help   Print this message.
-    --version    Print version and licensing information.
-    --file       File to parse (default is Makefile).
-    -k           Keep going if errors are encountered.
-    -n, --just-print     Just print commands to be run, without evaluating (print commands, don't send them to the shell). 
-Be aware that $(shell ...) macros are still evaluated. This option only applies to individual commands.
-    -p           Rather than finding targets, print the makefile, with top-level targets expanded.
-    -C dir       Switch to directory, dir, before running make. 
-    -j, --jobs   Maximum number of jobs (e.g. almake -j 8). 
-    -s, --silent In most cases, don't print output.
+    -h, --help                   Print this message.
+    --version                    Print version and licensing information.
+    --file                       File to parse (default is Makefile).
+    -k                           Keep going if errors are encountered.
+    -n, --just-print             Just print commands to be run, without evaluating (print commands, don't send them to the shell). Be aware that $(shell ...) macros are still evaluated. This option only applies to individual commands.
+    -p                           Rather than finding targets, print the makefile, with top-level targets expanded.
+    -C dir                       Switch to directory, dir, before running make. 
+    -w, --print-directory        Print the current directory before and after running make. 
+    -j, --jobs                   Maximum number of jobs (e.g. almake -j 8). 
+    -s, --silent                 In most cases, don't print output.
     -b, --built-in-shell         Use the built-in shell for commands in the makefile. This can also be enabled as follows:
    export _BUILTIN_SHELL := 1           # Use the built-in shell instead of the system shell.
-   export _CUSTOM_BASE_COMMANDS := 1    # Enable built-in overrides for several commands like ls, echo, and pwd.
+   export _CUSTOM_BASE_COMMANDS := 1    # Enable built-in overrides for several commands like ls, echo, cat, grep, and pwd.
    export _SYSTEM_SHELL_PIPES := 1      # Send commands that seem related to pipes (e.g. ls | less) directly to the system's shell. 
 Note: AlmostMake's built-in shell is currently very limited.
 
