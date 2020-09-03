@@ -1,4 +1,8 @@
 
+## 0.2.0
+ * Built-in `cat` does not stop early on failure to decode/open one or more arguments.
+ * ...
+
 ## 0.1.3
  * `$(dir ...)`, `$(notdir ...)`, `$(abspath ...)`, and `$(realpath ...)` functions.
  * Macro usage bug-fixes.

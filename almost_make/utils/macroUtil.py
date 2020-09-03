@@ -13,6 +13,10 @@ IS_MACRO_DEF_REGEXP = re.compile("^%s+\\s*[:+?]?\\=.*" % MACRO_NAME_EXP, re.IGNO
 IS_MACRO_INVOKE_REGEXP = re.compile(".*(?:[\\$])[\\(\\{]?%s+[\\)\\}]?" % MACRO_NAME_EXP)
 SPACE_CHARS = re.compile("\\s")
 
+CONDITIONAL_START = re.compile(r"^\s*(ifeq|ifneq|ifdef|ifndef)(?:\s|$)")
+CONDITIONAL_ELSE = re.compile(r"^\s*(else)(?:\s|$)")
+CONDITIONAL_STOP = re.compile(r"^\s*(endif)(?:\s|$)")
+
 # Constant(s)
 COMMENT_CHAR = '#'
 
@@ -20,6 +24,7 @@ class MacroUtil:
     macroCommands = {} # All commands executable as $(name arg1, arg2, ...)
     definitionConditions = [] # A list of additional preconditions for the definition of a macro.
     lazyEvalConditions = []   # Don't expand macros on a line when in define & expand mode if any of these conditions are true.
+    conditionals = False
     errorLogger = errorUtil.ErrorUtil()
     
     def setStopOnError(self, stopOnErr):
@@ -55,6 +60,10 @@ class MacroUtil:
     # Get if [text] syntatically invokes a macro.
     def isMacroInvoke(self, text):
         return IS_MACRO_INVOKE_REGEXP.match(text) != None
+
+    # Get if [text] is a conditional statement.
+    def isConditional(self, text):
+        return CONDITIONAL_START.match(text) or CONDITIONAL_STOP.match(text) or CONDITIONAL_ELSE.match(text)
 
     # Get whether expandAndDefineMacros should
     # evaluate the contents of a line, or allow it to
@@ -250,6 +259,8 @@ class MacroUtil:
                 if exporting:
                     os.environ[name] = macros[name]
 #            print("%s defined to %s" % (name, macros[name]))
+            elif self.conditionals and self.isConditional(line) and not self.shouldLazyEval(line):
+                pass # To-do
             elif self.isMacroInvoke(line) and not self.shouldLazyEval(line):
                 result += self.expandMacroUsages(line, macros)
             else:

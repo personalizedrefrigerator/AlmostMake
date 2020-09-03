@@ -311,7 +311,7 @@ class MakeUtil:
                     os.chdir(origDir)
         return True
     
-    # Handle all .include and include directives.
+    # Handle all .include and include directives, as well as any conditionals.
     def handleIncludes(self, contents, macros):
         lines = self.macroUtil.getLines(contents)
         lines.reverse()
