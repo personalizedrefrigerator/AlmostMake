@@ -2,6 +2,9 @@
 ## 0.1.2
  * Support for `-w, --print-directory` flags.
  * Flags imported from `MAKEFLAGS` no longer attempt to claim following values that are really default arguments.
+ * `$(dir ...)`, `$(notdir ...)`, `$(abspath ...)`, and `$(realpath ...)` functions.
+ * Macro usage bug-fixes.
+    * `$(words $(sort foo bar baz))` now works as expected! Nested macro-expansions were not working!
 
 ## 0.1.1
  * Built-in pipe interface: If the first argument has a non-zero return code, return that, rather than the return code of the right!

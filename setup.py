@@ -10,7 +10,7 @@ setuptools.setup(
     version=VERSION_STRING,
     author="Henry Heino",
     author_email="personalizedrefrigerator@gmail.com",
-    description="A pure-Python makefile parser and executor.",
+    description="A pure-Python implementation of make.",
     long_description=longDescription,
     long_description_content_type="text/markdown",
     url="https://github.com/personalizedrefrigerator/AlmostMake",
