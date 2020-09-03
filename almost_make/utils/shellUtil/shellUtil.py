@@ -331,22 +331,22 @@ def customCat(args, stdin, stdout, stderr, state):
                 success = False
 
                 continue
-            
-            with open(filename, 'r') as file:
-                lines = file.read().split('\n')
+            try:
+                with open(filename, 'rb') as file:
+                    lines = file.read().split(b'\n')
 
-                if len(lines) > 0 and lines[-1] == '':
-                    lines = lines[:-1]
+                    if len(lines) > 0 and lines[-1] == '':
+                        lines = lines[:-1]
 
-                for line in lines:
-                    lineNu += 1
-                    if type(line) == bytes:
-                        try:
-                            logLine(line.decode('utf-8'))
-                        except: # Fall back to ascii...
-                            logLine(line.decode('ascii'))
-                    else:
-                        logLine(line)
+                    for line in lines:
+                        lineNu += 1
+                        if type(line) == bytes:
+                            logLine(line.decode('utf-8', errors='replace'))
+                        else:
+                            logLine(line)
+            except IOError as ex:
+                cprint("Unable to read file %s. Message: %s.\n" % (filename, ex), printer.FORMAT_COLORS['RED'], file=stderr)
+                success = False
     return success
 
 def customGrep(args, stdin, stdout, stderr, state):
