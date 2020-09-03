@@ -392,6 +392,6 @@ class MakeUtil:
         satisfied = self.satisfyDependencies(target, targetRecipes, macros)
 
         if not satisfied and not self.silent:
-            print("Not hing to be done for target ``%s``." % target)
+            print("Nothing to be done for target ``%s``." % target)
         
         return (satisfied, macros)
