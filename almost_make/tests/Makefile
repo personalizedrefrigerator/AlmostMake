@@ -1,4 +1,3 @@
-#!make
 # To be run with AlmostMake.
 include *.mk
 
