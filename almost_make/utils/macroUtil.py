@@ -162,12 +162,17 @@ class MacroUtil:
                 expanded += '$'
             elif (c == '(' or c == '{') and inMacro:
                 parenLevel += 1
+
+                if parenLevel > 1:
+                    buff += c
             elif (c == ')' or c == '}') and inMacro:
                 parenLevel -= 1
 
                 if parenLevel == 0:
                     inMacro = False
                     buffFromMacro = True
+                else:
+                    buff += c
             elif inMacro and parenLevel == 0 and not MACRO_NAME_CHAR_REGEXP.match(c):
                 inMacro = False
                 buffFromMacro = True
@@ -183,7 +188,8 @@ class MacroUtil:
                 if buff in macros:
                     buff = macros[buff]
                 elif words[0] in self.macroCommands:
-                    buff = self.macroCommands[words[0]](" ".join(words[1:]), macros)
+                    argText = self.expandMacroUsages(" ".join(words[1:]), macros)
+                    buff = self.macroCommands[words[0]](argText, macros)
                 else:
                     self.errorLogger.reportError("Undefined macro %s. Context: %s." % (buff, line))
 

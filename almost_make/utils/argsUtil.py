@@ -73,13 +73,13 @@ def parseArgs(args,
 # found in the variable override those given.
 # Returns output as a new argument map. [mappings]
 # is used to parse arguments in the environment.
-def fillArgsFromEnv(argList, envVariable, mappings, defaultArgKey='default', givenOverridesNew=True):
+def fillArgsFromEnv(argList, envVariable, mappings, strictlyFlags={ 'help' }, defaultArgKey='default', givenOverridesNew=True):
     if not envVariable in os.environ:
         return argList
     
     # Get the argument mapping from the environment variable...
     envArgList = runner.shSplit(os.environ[envVariable])
-    argsFromEnv = parseArgs(envArgList, mappings, defaultArgKey, excludeFilename = False)
+    argsFromEnv = parseArgs(envArgList, mappings, defaultArgKey, excludeFilename = False, strictlyFlags = strictlyFlags)
 
     result = {}
     
@@ -110,6 +110,8 @@ def fillArgsFromEnv(argList, envVariable, mappings, defaultArgKey='default', giv
         if not val in defaultSet:
             result[defaultArgKey].append(val)
             defaultSet.add(val)
+
+#    print(str(envArgList) + " --> " + str(argsFromEnv) + " --> " + str(result))
 
     return result
 

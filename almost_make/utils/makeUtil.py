@@ -44,6 +44,11 @@ class MakeUtil:
         self.macroCommands["wildcard"] = lambda argstring, macros: " ".join([ shlex.quote(part) for part in globber.glob(argstring, '.') ])
         self.macroCommands["words"] = lambda argstring, macros: str(len(SPACE_CHARS.split(argstring)))
         self.macroCommands["sort"] = lambda argstring, macros: " ".join(sorted(list(set(SPACE_CHARS.split(argstring)))))
+        self.macroCommands["strip"] = lambda argstring, macros: argstring.strip()
+        self.macroCommands["dir"] = lambda argstring, macros: " ".join([ os.path.dirname(arg) for arg in SPACE_CHARS.split(argstring) ])
+        self.macroCommands["notdir"] = lambda argstring, macros: " ".join([ os.path.basename(arg) for arg in SPACE_CHARS.split(argstring) ])
+        self.macroCommands["abspath"] = lambda argstring, macros: " ".join([ os.path.abspath(arg) for arg in SPACE_CHARS.split(argstring) ])
+        self.macroCommands["realpath"] = lambda argstring, macros: " ".join([ os.path.realpath(arg) for arg in SPACE_CHARS.split(argstring) ])
 
         self.errorUtil = errorUtility.ErrorUtil()
         self.macroUtil = macroUtility.MacroUtil()
@@ -387,6 +392,6 @@ class MakeUtil:
         satisfied = self.satisfyDependencies(target, targetRecipes, macros)
 
         if not satisfied and not self.silent:
-            print("Not hing to be done for target ``%s``." % target)
+            print("Nothing to be done for target ``%s``." % target)
         
         return (satisfied, macros)

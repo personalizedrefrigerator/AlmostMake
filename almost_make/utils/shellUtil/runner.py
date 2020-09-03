@@ -347,7 +347,8 @@ def evalCommand(orderedCommand, customCommands={}, flags=[], stdin=None, stdout=
         raise SyntaxError("Too many parts to expression, %s" % str(orderedCommand))
 
 # Like shlex.split with punctuation grouping, but groups punctuation intelligently.
-def shSplit(text):
+def shSplit(text, splitChars={ '(', ')', '|', '&', '>', ';', ' ', '\t', '\n' }, quoteChars = { '"', "'" },
+        openingParen='(', closingParen=')'):
     escaped = False
     inQuote = None
     result = []
@@ -356,7 +357,7 @@ def shSplit(text):
     # Split by spaces and parentheses (and other punctuation chars...).
     for char in text:
         buff += char
-        if char in { '"', "'" } and not escaped:
+        if char in quoteChars and not escaped:
             if inQuote == char:
                 inQuote = None
             elif inQuote == None:
@@ -365,7 +366,7 @@ def shSplit(text):
             escaped = True
         elif escaped:
             escaped = False
-        elif char in [ '(', ')', '|', '&', '>', ';', ' ', '\t', '\n' ] and inQuote == None:
+        elif char in splitChars and inQuote == None:
             result.append(buff[:-1])
             result.append(char)
             buff = ""
@@ -382,11 +383,11 @@ def shSplit(text):
         
         if part != '':
             # If the direction of parentheses switches...
-            if part == '(' and ')' in buff  or  part == ')' and '(' in buff:
+            if part == openingParen and closingParen in buff  or  part == closingParen and openingParen in buff:
                 filtered.append(buff)
                 buff = ''
         
-            if part.startswith('(') or part.endswith(')'):
+            if part.startswith(openingParen) or part.endswith(closingParen):
                 buff += part
             elif buff != "":
                 filtered.append(buff)
