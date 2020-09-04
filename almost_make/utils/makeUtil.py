@@ -171,7 +171,7 @@ class MakeUtil:
                     if len(parts) > 2:
                         continue
                     
-                    if not targets[".SUFFIXES"]:
+                    if not ".SUFFIXES" in targets:
                         continue
                     
                     validSuffixes,_ = targets[".SUFFIXES"]

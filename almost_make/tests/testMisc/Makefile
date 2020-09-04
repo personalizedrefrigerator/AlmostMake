@@ -12,7 +12,10 @@ check: bracketCheck
 A := F
 A := ${A}oo
 
-bracketCheck:
+${A}2:
 	echo ${A} | grep "Foo"
 
-.PHONY: check clean bracketCheck
+bracketCheck: Foo2
+	echo ${A} | grep "Foo"
+
+.PHONY: check clean bracketCheck $(A)2
