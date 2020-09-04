@@ -99,8 +99,9 @@ class MacroUtil:
     # macros in the chosen branch.
     def evaluateIf(self, conditionalContent, ifBranch, elseBranch, macros):
         assert self.isConditional(conditionalContent) # We should always be given a valid starting conditional.
-        print(conditionalContent + ";;" + ifBranch + ";;" + str(elseBranch))
-        print('----------')
+#        print('----------')
+#        print(conditionalContent + ";;" + ifBranch + ";;" + str(elseBranch))
+#        print('----------')
 
         conditionalContent = conditionalContent.lstrip()
         conditional = CONDITIONAL_START.match(conditionalContent).group(1)
@@ -302,34 +303,40 @@ From %s, parsed arguments: %s""" %
                 if self.isConditional(line):
                     if CONDITIONAL_START.match(line):
                         conditionalData['stack'].append(line)
+                        conditionalData['endifWeight'].append(1)
                     # We ignore CONDITIONAL_ELSE unless it applies directly to THIS conditional.
-                    elif CONDITIONAL_ELSE.match(line) and len(conditionalData['stack']) == conditionalData['endifWeight']:
+                    elif CONDITIONAL_ELSE.match(line) and len(conditionalData['stack']) == conditionalData['endifWeight'][-1]:
                         elseText = CONDITIONAL_ELSE.match(line).group(1)
+#                        print("Else: " + line)
                         line = line.strip()[len(elseText):].strip() # Move anything after 'else' onto the next line (conceptually). Permits else if...
 
                         if not conditionalData['elseBranch']:
                             conditionalData['elseBranch'] = ''
+                        else:
+                            conditionalData['elseBranch'] += 'else\n'
                         conditionalData['elseBranch'] += line + '\n' # We can start building-up the else branch...
 
                         # Is it an else if?
                         if CONDITIONAL_START.match(line):
                             conditionalData['stack'].append(line) # Treat it like an if.
-                            conditionalData['endifWeight'] += 1 # The next endif removes two elements from the stack.
+                            conditionalData['endifWeight'].append(conditionalData['endifWeight'][-1] + 1) # The next endif removes two elements from the stack.
 
                         continue
                     elif CONDITIONAL_STOP.match(line):
-                        print(str(len(conditionalData['stack'])) + "," + line + ",  wt:" + str(conditionalData['endifWeight']))
+#                        print(str(len(conditionalData['stack'])) + "," + line + ",  wt:" + str(conditionalData['endifWeight'][-1]))
 
-                        while conditionalData['endifWeight'] > 1:
+                        while conditionalData['endifWeight'][-1] > 1:
                             conditionalData['elseBranch'] += 'endif\n'
                             conditionalData['stack'].pop()
-                            conditionalData['endifWeight'] -= 1
+                            conditionalData['endifWeight'][-1] -= 1
+                        
+                        conditionalData['endifWeight'].pop()
 
                         if len(conditionalData['stack']) > 1: # The endif applied to a sub-if statement.
                             conditionalData['stack'].pop()
-                            print("   To if. stacklen: " + str(len(conditionalData['stack'])))
+#                            print("   To if. stacklen: " + str(len(conditionalData['stack'])))
                         else:
-                            print("  To else")
+#                            print("  To else")
                             
                             ifConditional = conditionalData['stack'].pop() # Contents of the if statement.
 
@@ -394,7 +401,7 @@ From %s, parsed arguments: %s""" %
                 if not CONDITIONAL_START.match(conditional):
                     self.errorLogger.reportError("%s without a leading if. Context: %s. Buffer: %s" % (conditional, line, result))
                 
-                conditionalData = { 'ifBranch': '', 'elseBranch': None, 'stack': [], 'endifWeight': 1 }
+                conditionalData = { 'ifBranch': '', 'elseBranch': None, 'stack': [], 'endifWeight': [ 1 ] }
                 conditionalData['stack'].append(line)
             elif self.isMacroInvoke(line) and not self.shouldLazyEval(line):
                 result += self.expandMacroUsages(line, macros)
@@ -403,6 +410,6 @@ From %s, parsed arguments: %s""" %
             result += '\n'
 
         if not conditionalData is None:
-            self.errorLogger.reportError("Un-ending conditional! Conditional data: %s." % str(conditionalData))
+            self.errorLogger.reportError("Un-ending conditional (check your indentation -- leading tabs can mess things up)! Conditional data: %s." % str(conditionalData))
         
         return (result, macros)
