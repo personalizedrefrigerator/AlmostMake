@@ -15,5 +15,20 @@ all: $(wildcard *.tx*)
 	echo $(abspath d.txt)  | grep -Fx "$${PWD}/d.txt"
 	echo $(realpath d.txt)  | grep -Fx "$${PWD}/d.txt"
 
+	echo $(subst a,b,a) | grep -Fx "b"
+	echo $(subst foo,bar,bar) | grep -Fx "bar"
+	echo $(subst nope,noChanges,here) | grep -Fx "here"
+	echo $(subst and,it,happened to happen, that day. And so it did. And, and, and.) \
+		| grep -Fx "happened to happen, that day. And so it did. And, it, it."
+	
+	echo $(patsubst a,b,c d ) | grep -Fx "c d"
+	echo $(patsubst a,,c d ) | grep -Fx "c d"
+	echo $(patsubst c,aa,c d ) | grep -Fx "aa d"
+	echo $(patsubst c,,c d ) | grep -Fx "d"
+	echo a$(patsubst %,,c d )b | grep -Fx "ab"
+	echo $(patsubst %.in,%.out, a.in b.in c.out) | grep -Fx "a.out b.out c.out"
+	echo $(patsubst \%.%.backup,abc.%.backup,one two.%.backup %.abcdefg.backup) | grep -Fx "one two.%.backup abc.abcdefg.backup"
+	echo $(patsubst %%,foo,a% b c% d e% f% g% h) | grep -Fx "foo b foo d foo foo foo h"
+
 %.txt:
 	@echo $@

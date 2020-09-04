@@ -101,8 +101,14 @@ def filterArgs(args, minimumLength, stdout):
 
 CUSTOM_COMMANDS = \
 {
-    "exit": lambda args, flags, stdin, stdout, stderr, state: filterArgs(args, 1, stdout) and sys.exit((len(args) > 1 and args[1]) or 0)
+    
 }
+
+def customExit(args, stdin, stdout, stderr, state):
+    if len(args) == 0:
+        sys.exit(0)
+    else:
+        sys.exit(int(args[0]))
 
 LS_DIRECTORY_COLOR = FORMAT_COLORS['BLUE']
 LS_LINK_COLOR = FORMAT_COLORS['BLUE']
@@ -306,6 +312,7 @@ def customCat(args, stdin, stdout, stderr, state):
         cprint(str(line) + end + "\n", file=stdout)
 
     stdin = printer.wrapFile(stdin)
+    success = True
     
     for arg in args['default']:
         if arg == '-':
@@ -322,26 +329,31 @@ def customCat(args, stdin, stdout, stderr, state):
 
             if not os.path.exists(filename):
                 cprint("File %s does not exist.\n" % filename, color=printer.FORMAT_COLORS["RED"], file=stderr)
-                return False
+                success = False
+
+                continue
             if not os.path.isfile(filename):
                 cprint("Path %s is not a file.\n" % filename, color=printer.FORMAT_COLORS["RED"], file=stderr)
-                return False
-            
-            with open(filename, 'r') as file:
-                lines = file.read().split('\n')
+                success = False
 
-                if len(lines) > 0 and lines[-1] == '':
-                    lines = lines[:-1]
+                continue
+            try:
+                with open(filename, 'rb') as file:
+                    lines = file.read().split(b'\n')
 
-                for line in lines:
-                    lineNu += 1
-                    if type(line) == bytes:
-                        try:
-                            logLine(line.decode('utf-8'))
-                        except: # Fall back to ascii...
-                            logLine(line.decode('ascii'))
-                    else:
-                        logLine(line)
+                    if len(lines) > 0 and lines[-1] == '':
+                        lines = lines[:-1]
+
+                    for line in lines:
+                        lineNu += 1
+                        if type(line) == bytes:
+                            logLine(line.decode('utf-8', errors='replace'))
+                        else:
+                            logLine(line)
+            except IOError as ex:
+                cprint("Unable to read file %s. Message: %s.\n" % (filename, ex), printer.FORMAT_COLORS['RED'], file=stderr)
+                success = False
+    return success
 
 def customGrep(args, stdin, stdout, stderr, state):
     args = parseArgs(args,
@@ -567,6 +579,7 @@ def getCustomCommands(macros):
         result[alias] = lambda args, flags, stdin, stdout, stderr, state: filterArgs(args, minArgs, stdout) and fn(args, stdin, stdout, stderr, state)
     
     addCustomCommand("cd", 2, customCd)
+    addCustomCommand("exit", 1, customExit)
 
     if "_CUSTOM_BASE_COMMANDS" in macros:
         addCustomCommand("ls", 1, customLs)

@@ -22,6 +22,32 @@ def parseEscapes(text, escapes={ '033': '\033', 't': '\t', 'r': '\r', 'n': '\n',
     result += buff
     return result
 
+# Split [text] by character, only if [splitChar] isn't immediately 
+# following [escapeChar].
+def escapeSafeSplit(text, splitChar, escapeChar):
+    result = []
+    buff = ""
+    escaped = False
+
+    if len(text) == 0:
+        return []
+    
+    for char in text:
+        if char == splitChar and not escaped:
+            result.append(buff)
+            buff = ''
+        elif char == escapeChar and not escaped:
+            escaped = True
+        elif escaped:
+            escaped = False
+            buff += char
+        else:
+            buff += char
+    
+    result.append(buff)
+
+    return result
+
 # Tests.
 if __name__ == "__main__":
     def assertEql(a, b):
@@ -37,3 +63,10 @@ if __name__ == "__main__":
     assertEql(parseEscapes("A test of this\\n", {}), "A test of thisn")
     assertEql(parseEscapes("A \\033[32m test! \\033[0m"), "A \033[32m test! \033[0m")
     assertEql(parseEscapes("\\033[32mabc\\033[0m"), "\033[32mabc\033[0m")
+
+    assertEql(escapeSafeSplit("A,test,that,is,simple.", ',', '\\'), ['A', 'test', 'that', 'is', 'simple.'])
+    assertEql(escapeSafeSplit("A,test\\n,that,is less,simple.", ',', '\\'), ['A', 'testn', 'that', 'is less', 'simple.'])
+    assertEql(escapeSafeSplit("", ',', '\\'), [])
+    assertEql(escapeSafeSplit(" ", ',', '\\'), [' '])
+    assertEql(escapeSafeSplit(" \\,a", ',', '\\'), [' ,a'])
+    assertEql(escapeSafeSplit(" \\,a, b", ',', '\\'), [' ,a', ' b'])

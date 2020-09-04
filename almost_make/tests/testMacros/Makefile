@@ -6,7 +6,7 @@ clean:
 .PHONY: check clean macroTest
 
 
-macroTest: testMacroConcat testMacroConditionalSet testMacroCommands
+macroTest: testMacroConcat testMacroConditionalSet testMacroCommands testConditionals
 	echo $(PATH) | grep $(shell echo ${PATH})
 	echo $(TEST_MACRO) | grep "Testing1234=:= := This \*\*should \*\* work!"
 	$(MAKE) -C overrideMacrosTest DOES_IT_OVERRIDE=YesItDoes
@@ -34,3 +34,7 @@ testMacroCommands:
 	echo $$(OUT) | grep -F 'a.txt';\
 	echo $$(OUT) | grep -F 'b.txt';\
 	echo $$(OUT) | grep -F 'c.txt';
+
+testConditionals:
+	@echo "---- Testing macro conditionals!!! ----"
+	$(MAKE) -C macroConditionals
