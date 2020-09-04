@@ -16,6 +16,7 @@ import almost_make.utils.macroUtil as macroUtility
 import almost_make.utils.shellUtil.shellUtil as shellUtility
 import almost_make.utils.shellUtil.runner as runner
 import almost_make.utils.shellUtil.globber as globber
+import almost_make.utils.shellUtil.escapeParser as escaper
 import almost_make.utils.errorUtil as errorUtility
 
 # Regular expressions
@@ -40,15 +41,17 @@ class MakeUtil:
     justPrint = False # Print commands, without evaluating.
 
     def __init__(self):
-        self.macroCommands["shell"] = lambda code, macros: os.popen(code).read().rstrip(' \n\r\t') # To-do: Use the built-in shell if specified...
-        self.macroCommands["wildcard"] = lambda argstring, macros: " ".join([ shlex.quote(part) for part in globber.glob(argstring, '.') ])
-        self.macroCommands["words"] = lambda argstring, macros: str(len(SPACE_CHARS.split(argstring)))
-        self.macroCommands["sort"] = lambda argstring, macros: " ".join(sorted(list(set(SPACE_CHARS.split(argstring)))))
+        self.macroCommands["shell"] = lambda code, macros: os.popen(self.macroUtil.expandMacroUsages(code, macros)).read().rstrip(' \n\r\t') # To-do: Use the built-in shell if specified...
+        self.macroCommands["wildcard"] = lambda argstring, macros: " ".join([ shlex.quote(part) for part in globber.glob(self.macroUtil.expandMacroUsages(argstring, macros), '.') ])
+        self.macroCommands["words"] = lambda argstring, macros: str(len(SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros))))
+        self.macroCommands["sort"] = lambda argstring, macros: " ".join(sorted(list(set(SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros))))))
         self.macroCommands["strip"] = lambda argstring, macros: argstring.strip()
-        self.macroCommands["dir"] = lambda argstring, macros: " ".join([ os.path.dirname(arg) for arg in SPACE_CHARS.split(argstring) ])
-        self.macroCommands["notdir"] = lambda argstring, macros: " ".join([ os.path.basename(arg) for arg in SPACE_CHARS.split(argstring) ])
-        self.macroCommands["abspath"] = lambda argstring, macros: " ".join([ os.path.abspath(arg) for arg in SPACE_CHARS.split(argstring) ])
-        self.macroCommands["realpath"] = lambda argstring, macros: " ".join([ os.path.realpath(arg) for arg in SPACE_CHARS.split(argstring) ])
+        self.macroCommands["dir"] = lambda argstring, macros: " ".join([ os.path.dirname(arg) for arg in SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros)) ])
+        self.macroCommands["notdir"] = lambda argstring, macros: " ".join([ os.path.basename(arg) for arg in SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros)) ])
+        self.macroCommands["abspath"] = lambda argstring, macros: " ".join([ os.path.abspath(arg) for arg in SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros)) ])
+        self.macroCommands["realpath"] = lambda argstring, macros: " ".join([ os.path.realpath(arg) for arg in SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros)) ])
+        self.macroCommands["subst"] = lambda argstring, macros: self.makeCmdSubst(argstring, macros)
+        self.macroCommands["patsubst"] = lambda argstring, macros: self.makeCmdSubst(argstring, macros, True)
 
         self.errorUtil = errorUtility.ErrorUtil()
         self.macroUtil = macroUtility.MacroUtil()
@@ -375,6 +378,69 @@ class MakeUtil:
         newLines.reverse()
 
         return self.macroUtil.expandAndDefineMacros("\n".join(newLines), macros)
+
+    ## Macro commands.
+
+    # Example: $(subst foo,bar,foobar baz) -> barbar baz
+    # See https://www.gnu.org/software/make/manual/html_node/Syntax-of-Functions.html#Syntax-of-Functions
+    #     and https://www.gnu.org/software/make/manual/html_node/Text-Functions.html
+    def makeCmdSubst(self, argstring, macros, patternBased=False):
+        args = argstring.split(',')
+
+        if len(args) < 3:
+            self.errorUtil.reportError("Too few arguments given to subst function. Arguments: %s" % ','.join(args))
+
+        firstThreeArgs = args[:3]
+        firstThreeArgs[2] = ','.join(args[2:])
+        args = firstThreeArgs
+
+        replaceText = self.macroUtil.expandMacroUsages(args[0], macros)
+        replaceWith = self.macroUtil.expandMacroUsages(args[1], macros)
+        text        = self.macroUtil.expandMacroUsages(args[2], macros)
+
+        if not patternBased:
+            return re.sub(re.escape(replaceText), replaceWith, text)
+        else: # Using $(patsubst pattern,replacement,text)
+            words = SPACE_CHARS.split(text.strip())
+            result = []
+
+            escaped = False
+
+            pattern = escaper.escapeSafeSplit(replaceText, '%', '\\')
+            replaceWith = escaper.escapeSafeSplit(replaceWith, '%', '\\')
+
+            replaceAll = False
+            replaceExact = False
+            staticReplace = False
+
+            if len(pattern) == 1:
+                replaceAll = pattern == ''
+                replaceExact = pattern[0]
+            
+            if len(replaceWith) <= 1:
+                staticReplace = True
+
+            while len(pattern) < 2:
+                pattern.append('')
+            while len(replaceWith) < 2:
+                replaceWith.append('')
+            
+            pattern[1] = '%'.join(pattern[1:])
+            replaceWith[1] = '%'.join(replaceWith[1:])
+
+            for word in words:
+                if replaceExact == False and (replaceAll or  word.startswith(pattern[0]) and word.endswith(pattern[1])):
+                    if not staticReplace:
+                        result.append(replaceWith[0] + word[len(pattern[0]) : -len(pattern[1])] + replaceWith[1])
+                    else:
+                        result.append(replaceWith[0])
+                elif replaceExact == word.strip():
+                    result.append('%'.join(runner.removeEmpty(replaceWith)))
+                else:
+                    result.append(word)
+            
+            return " ".join(runner.removeEmpty(result))
+
 
     # Run commands specified to generate
     # dependencies of target by the contents

@@ -174,10 +174,9 @@ At present, `AlmostMake` **does not support** the following, notable features.
 
 In `almake`:
  * `VPATH`
- * `$(patsubst ...)`
  * `$(shell ...)` that can use `almake_shell`
- * Conditionals
- * BSD-style `.include < ... >` includes
+ * BSDMake-style conditionals
+ * BSDMake-style `.include < ... >` includes
 
 In `almake_shell`/built-in shell:
  * `if` statements, loops, functions.
@@ -195,9 +194,9 @@ Note, however, that `make test` depends on `make install`.
 ## Supported Platforms
 
 At present, it has been tested on the following platforms:
- - Ubuntu with Python 3.8, AlmostMake v0.1.0. All tests pass.
+ - Ubuntu with Python 3.8, AlmostMake v0.2.0. All tests pass.
  - Debian with Python 3.7, older AlmostMake. All tests pass.
- - iOS via [a-Shell](https://github.com/holzschu/a-shell), AlmostMake v0.0.19. Failing tests.
+ - iOS via [a-Shell](https://github.com/holzschu/a-shell), AlmostMake v0.19.0. Failing tests.
 
 If you find that AlmostMake works on a platform not listed here, please consider [creating an issue and/or submitting a pull request to update the list of supported platforms and versions of Python](https://github.com/personalizedrefrigerator/AlmostMake/issues/new)!
 

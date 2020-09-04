@@ -1,7 +1,9 @@
 
 ## 0.2.0
  * Built-in `cat` does not stop early on failure to decode/open one or more arguments.
- * ...
+ * GNUMake-style conditionals!
+    * You can now use `ifeq`, `ifneq`, `ifdef`, and `ifndef`.
+ * Added macro function `$(subst from,to,text)`
 
 ## 0.1.3
  * `$(dir ...)`, `$(notdir ...)`, `$(abspath ...)`, and `$(realpath ...)` functions.
