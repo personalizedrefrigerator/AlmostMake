@@ -101,8 +101,14 @@ def filterArgs(args, minimumLength, stdout):
 
 CUSTOM_COMMANDS = \
 {
-    "exit": lambda args, flags, stdin, stdout, stderr, state: filterArgs(args, 1, stdout) and sys.exit((len(args) > 1 and args[1]) or 0)
+    
 }
+
+def customExit(args, stdin, stdout, stderr, state):
+    if len(args) == 0:
+        sys.exit(0)
+    else:
+        sys.exit(int(args[0]))
 
 LS_DIRECTORY_COLOR = FORMAT_COLORS['BLUE']
 LS_LINK_COLOR = FORMAT_COLORS['BLUE']
@@ -573,6 +579,7 @@ def getCustomCommands(macros):
         result[alias] = lambda args, flags, stdin, stdout, stderr, state: filterArgs(args, minArgs, stdout) and fn(args, stdin, stdout, stderr, state)
     
     addCustomCommand("cd", 2, customCd)
+    addCustomCommand("exit", 1, customExit)
 
     if "_CUSTOM_BASE_COMMANDS" in macros:
         addCustomCommand("ls", 1, customLs)

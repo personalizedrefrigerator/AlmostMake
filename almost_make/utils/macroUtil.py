@@ -14,7 +14,7 @@ IS_MACRO_DEF_REGEXP = re.compile("^%s+\\s*[:+?]?\\=.*" % MACRO_NAME_EXP, re.IGNO
 IS_MACRO_INVOKE_REGEXP = re.compile(".*(?:[\\$])[\\(\\{]?%s+[\\)\\}]?" % MACRO_NAME_EXP)
 SPACE_CHARS = re.compile("\\s")
 
-CONDITIONAL_START = re.compile(r"^\s*(ifeq|ifneq|ifdef|ifndef)\s")
+CONDITIONAL_START = re.compile(r"^\s*(ifeq|ifneq|ifdef|ifndef)(?:\s|$)")
 CONDITIONAL_ELSE = re.compile(r"^\s*(else)(?:\s|$)")
 CONDITIONAL_STOP = re.compile(r"^\s*(endif)(?:\s|$)")
 
@@ -42,6 +42,19 @@ class MacroUtil:
     def addLazyEvalCondition(self, condition):
         self.lazyEvalConditions.append(condition)
 
+    # Turn on conditional support!
+    def enableConditionals(self):
+        self.conditionals = True
+
+    # Get whether expandAndDefineMacros should
+    # evaluate the contents of a line, or allow it to
+    # be done later. Add conditions via addLazyEvalCondition.
+    def shouldLazyEval(self, text):
+        for condition in self.lazyEvalConditions:
+            if condition(text):
+                return True
+        return False
+    
     # Get if [text] defines a macro.
     def isMacroDef(self, text):
         if IS_MACRO_DEF_REGEXP.match(text) == None:
@@ -64,7 +77,7 @@ class MacroUtil:
 
     # Get if [text] is a conditional statement.
     def isConditional(self, text):
-        if self.isLazyEval(text): # Lazy evaluation for this line? Skip it.
+        if self.shouldLazyEval(text): # Lazy evaluation for this line? Skip it.
             return False
 
         return CONDITIONAL_START.match(text) or CONDITIONAL_STOP.match(text) or CONDITIONAL_ELSE.match(text)
@@ -85,10 +98,13 @@ class MacroUtil:
     # CONDITIONAL_START.match([conditionalContent]) should not be None. Do not expand and define 
     # macros in the chosen branch.
     def evaluateIf(self, conditionalContent, ifBranch, elseBranch, macros):
-        assert isConditional(conditionalContent) # We should always be given a valid starting conditional.
+        assert self.isConditional(conditionalContent) # We should always be given a valid starting conditional.
+        print(conditionalContent + ";;" + ifBranch + ";;" + str(elseBranch))
+        print('----------')
 
+        conditionalContent = conditionalContent.lstrip()
         conditional = CONDITIONAL_START.match(conditionalContent).group(1)
-        argText     = conditionalContent[len(conditional): ].strip()
+        argText     = conditionalContent[len(conditional) + 1: ].strip()
         argText     = self.expandMacroUsages(argText, macros).strip()
         choseIfBranch = True
 
@@ -98,34 +114,38 @@ class MacroUtil:
             choseIfBranch = not (argText.strip() in macros)
         else: # Binary conditionals.
             args = runner.shSplit(argText, { ',', ' ', '\t', '(', ')' })
+            args = runner.removeEqual(runner.unwrapParens(args), ',')
 
             # shSplit removes empty elements. Add in an empty element if necessary.
             if len(args) == 1:
                 args.append('')
 
             if len(args) != 2:
-                self.errorLogger.noteError("Binary conditional %s has %s arguments! Context: %s" %
-                        (str(conditional), str(len(args)), str(conditionalContent)))
+                self.errorLogger.reportError("""Binary conditional %s has %s arguments!
+Context: %s, so,
+%s
+%s
+else
+%s
+endif
+--------
+From %s, parsed arguments: %s""" %
+    (str(conditional), str(len(args)), 
+    str(conditionalContent), str(conditional) + " " + str(argText), 
+    str(ifBranch), str(elseBranch),
+    str(argText), str(args)))
             
             if conditional == 'ifeq':
                 choseIfBranch = args[0] == args[1]
             elif conditional == 'ifneq':
                 choseIfBranch = args[0] != args[1]
             else:
-                self.errorLogger.noteError("Unknown conditional %s. Context: %s." % (conditional, conditionalContent))
+                self.errorLogger.reportError("Unknown conditional %s. Context: %s." % (conditional, conditionalContent))
 
         if choseIfBranch:
             return ifBranch
         return elseBranch or '' # elseBranch can be None...
 
-    # Get whether expandAndDefineMacros should
-    # evaluate the contents of a line, or allow it to
-    # be done later. Add conditions via addLazyEvalCondition.
-    def shouldLazyEval(self, text):
-        for condition in self.lazyEvalConditions:
-            if condition(text):
-                return True
-        return False
 
 
     # Get a list of suggested default macros from the environment
@@ -166,7 +186,7 @@ class MacroUtil:
 
     # Remove comments from line as defined
     # by COMMENT_CHAR
-    def stripComments(self, line):
+    def stripComments(self, line, force=False):
         singleLevel = { '"': False, "\'": False }
         inSomeSingleLevel = False
         multiLevelOpen = { '(': 0, '{': 0 }
@@ -194,7 +214,7 @@ class MacroUtil:
                     self.errorLogger.reportError("Parentheses mismatch on line with content: %s" % line)
                 else:
                     multiLevelOpen[bracketPairChar] -= 1
-            elif c == COMMENT_CHAR and not escaped and not inSomeSingleLevel:
+            elif c == COMMENT_CHAR and not escaped and not inSomeSingleLevel and (not self.shouldLazyEval(line) or force):
                 break
             else:
                 escaped = False
@@ -283,28 +303,51 @@ class MacroUtil:
                     if CONDITIONAL_START.match(line):
                         conditionalData['stack'].append(line)
                     # We ignore CONDITIONAL_ELSE unless it applies directly to THIS conditional.
-                    elif CONDITIONAL_ELSE.match(line) and len(conditionalData['stack']) == 1:
+                    elif CONDITIONAL_ELSE.match(line) and len(conditionalData['stack']) == conditionalData['endifWeight']:
                         elseText = CONDITIONAL_ELSE.match(line).group(1)
-                        line = line[len(elseText):].strip() # Move anything after 'else' onto the next line (conceptually). Permits else if...
-                        conditionalData['elseBranch'] = line # We can start building-up the else branch...
+                        line = line.strip()[len(elseText):].strip() # Move anything after 'else' onto the next line (conceptually). Permits else if...
+
+                        if not conditionalData['elseBranch']:
+                            conditionalData['elseBranch'] = ''
+                        conditionalData['elseBranch'] += line + '\n' # We can start building-up the else branch...
+
+                        # Is it an else if?
+                        if CONDITIONAL_START.match(line):
+                            conditionalData['stack'].append(line) # Treat it like an if.
+                            conditionalData['endifWeight'] += 1 # The next endif removes two elements from the stack.
+
                         continue
                     elif CONDITIONAL_STOP.match(line):
+                        print(str(len(conditionalData['stack'])) + "," + line + ",  wt:" + str(conditionalData['endifWeight']))
+
+                        while conditionalData['endifWeight'] > 1:
+                            conditionalData['elseBranch'] += 'endif\n'
+                            conditionalData['stack'].pop()
+                            conditionalData['endifWeight'] -= 1
+
                         if len(conditionalData['stack']) > 1: # The endif applied to a sub-if statement.
                             conditionalData['stack'].pop()
+                            print("   To if. stacklen: " + str(len(conditionalData['stack'])))
                         else:
+                            print("  To else")
+                            
                             ifConditional = conditionalData['stack'].pop() # Contents of the if statement.
 
+                            elsePart = conditionalData['elseBranch'] or ''
+
                             chosenBranch = self.evaluateIf(ifConditional, 
-                                conditionalData['ifBranch'], conditionalData['elseBranch'], macros)
+                                conditionalData['ifBranch'], elsePart, macros)
                             
                             # We have reached the end of the branch. Add a version to result.
                             expanded, macros = self.expandAndDefineMacros(chosenBranch, macros)
+                            result += expanded + '\n'
+
                             conditionalData = None # We are done!
                             continue
                 if conditionalData['elseBranch'] != None:
-                    conditionalData['elseBranch'] += line
+                    conditionalData['elseBranch'] += line + '\n'
                 else:
-                    conditionalData['ifBranch'] += line
+                    conditionalData['ifBranch'] += line + '\n'
                 continue
 
             # If either a macro export, or a setting a macro's value, without an export...
@@ -349,10 +392,10 @@ class MacroUtil:
 
                 # The conditional must, initially, be some if...
                 if not CONDITIONAL_START.match(conditional):
-                    self.errorLogger.reportError("%s without a leading if. Context: %s." % (conditional, line))
+                    self.errorLogger.reportError("%s without a leading if. Context: %s. Buffer: %s" % (conditional, line, result))
                 
-                conditionalData = { 'ifBranch': '', 'elseBranch': None, 'stack': [] }
-                conditionalData['stack'].append(conditional)
+                conditionalData = { 'ifBranch': '', 'elseBranch': None, 'stack': [], 'endifWeight': 1 }
+                conditionalData['stack'].append(line)
             elif self.isMacroInvoke(line) and not self.shouldLazyEval(line):
                 result += self.expandMacroUsages(line, macros)
             else:

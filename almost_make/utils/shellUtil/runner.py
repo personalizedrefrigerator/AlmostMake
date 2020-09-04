@@ -41,15 +41,20 @@ def getEndingCount(text, char):
 
     return count
 
-# Remove empty strings from a string array.
-def removeEmpty(array):
+# Return a shallow copy of [array] with 
+# all items equal to [eqlTo] removed.
+def removeEqual(array, eqlTo):
     result = []
 
     for val in array:
-        if val != "":
+        if val != eqlTo:
             result.append(val)
     
     return result
+
+# Remove empty strings from a string array.
+def removeEmpty(array):
+    return removeEqual(array, '')
 
 # Get the number of pairs of parentheses that
 # surround the entirety of [splitText].

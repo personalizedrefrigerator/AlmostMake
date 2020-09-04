@@ -53,6 +53,8 @@ class MakeUtil:
         self.errorUtil = errorUtility.ErrorUtil()
         self.macroUtil = macroUtility.MacroUtil()
 
+        self.macroUtil.enableConditionals() # ifeq, ifdef, etc.
+
         self.macroUtil.setMacroCommands(self.macroCommands)
         self.macroUtil.addMacroDefCondition(lambda line: not line.startswith(self.recipeStartChar))
         self.macroUtil.addLazyEvalCondition(lambda line: line.startswith(self.recipeStartChar))
