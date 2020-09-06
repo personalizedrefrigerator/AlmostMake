@@ -1,4 +1,7 @@
 
+## 0.3.0
+ * Support for finding files relative to `VPATH`
+
 ## 0.2.1
  * Fix a bug: `if not targets['.SUFFIXES']: ...` should have been `if not '.SUFFIXES' in targets: ...` 
 

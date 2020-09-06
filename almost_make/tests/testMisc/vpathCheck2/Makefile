@@ -1,10 +1,11 @@
 
 VPATH := idontExist folder folder2 folder3/folder4 ../includeTest
 
-include anotherFile.mk
+include *.mk
 
-all: a.txt b.txt c.txt d.txt e.txt
+all: a.txt *.txt e.txt
 	echo $(ANOTHER_FILE) | grep True
+	echo $(VIA_DOT) | grep True
 	echo "VPATH include test!"
 
 d.txt:

@@ -42,7 +42,7 @@ class MakeUtil:
 
     def __init__(self):
         self.macroCommands["shell"] = lambda code, macros: os.popen(self.macroUtil.expandMacroUsages(code, macros)).read().rstrip(' \n\r\t') # To-do: Use the built-in shell if specified...
-        self.macroCommands["wildcard"] = lambda argstring, macros: " ".join([ shlex.quote(part) for part in globber.glob(self.macroUtil.expandMacroUsages(argstring, macros), '.') ])
+        self.macroCommands["wildcard"] = lambda argstring, macros: " ".join([ shlex.quote(part) for part in self.glob(self.macroUtil.expandMacroUsages(argstring, macros), macros) ])
         self.macroCommands["words"] = lambda argstring, macros: str(len(SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros))))
         self.macroCommands["sort"] = lambda argstring, macros: " ".join(sorted(list(set(SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros))))))
         self.macroCommands["strip"] = lambda argstring, macros: argstring.strip()
@@ -137,18 +137,14 @@ class MakeUtil:
         targetNames.extend(specialTargetNames)
         return (result, targetNames)
 
-    # Find a file with relative path [givenPath]. If 
-    # VPATH is in macros, search each semi-colon, colon,
-    # or space-separated entry for the file. Returns the 
-    # path to the file, or None, if the file does not exist.
-    def findFile(self, givenPath, macros):
-        givenPath = os.path.normcase(givenPath)
-        if os.path.exists(givenPath):
-            return givenPath
-        elif not 'VPATH' in macros:
-            return None
-        
+    # Get a list of directories (including the current working directory)
+    # from macros['VPATH']. Returns an array with one element, the current working
+    # directory, if there is no 'VPATH' macro.
+    def getSearchPath(self, macros):
         searchPath = [ os.path.abspath('.') ]
+        
+        if not 'VPATH' in macros:
+            return searchPath
 
         vpath = macros['VPATH']
 
@@ -163,7 +159,18 @@ class MakeUtil:
             if len(split) > 1:
                 break
         
-        searchPath.extend([ os.path.abspath(os.path.normcase(part)) for part in split ])
+        searchPath.extend([ os.path.normcase(part) for part in split ])
+
+        return searchPath
+
+    # Find a file with relative path [givenPath]. If 
+    # VPATH is in macros, search each semi-colon, colon,
+    # or space-separated entry for the file. Returns the 
+    # path to the file, or None, if the file does not exist.
+    def findFile(self, givenPath, macros):
+        givenPath = os.path.normcase(givenPath)
+        
+        searchPath = self.getSearchPath(macros)
 
         for part in searchPath:
             path = os.path.join(part, givenPath)
@@ -171,6 +178,39 @@ class MakeUtil:
             if os.path.exists(path):
                 return path
         return None
+
+    # Glob [text], but search [VPATH] for additional matches.
+    def glob(self, text, macros):
+        if not 'VPATH' in macros:
+            return globber.glob(text, '.')
+        
+        searchPath = self.getSearchPath(macros)
+        result = globber.glob(text, '.', [])
+        text = os.path.normcase(text)
+
+        for part in searchPath:
+            result.extend(globber.glob(os.path.join(part, text), '.', []))
+        
+        # Act like system glob. If we didn't find anything, 
+        # return [ text ] 
+        if len(result) == 0:
+            result = [ text ]
+        
+        return result
+
+    # Glob all elements in arr, but not the first.
+    def globArgs(self, arr, macros, excludeFirst=True):
+        result = []
+        isFirst = excludeFirst
+
+        for part in arr:
+            if not runner.isQuoted(part.strip()) and not isFirst:
+                result.extend(self.glob(part, macros))
+            else:
+                result.append(part)
+                isFirst = False
+        
+        return result
 
     # Generate [target] if necessary. Returns
     # True if generated, False if not necessary.
@@ -269,7 +309,7 @@ class MakeUtil:
             runRecipe = True
         
         depPaths = []
-        deps = runner.removeEmpty(deps)
+        deps = self.globArgs(runner.removeEmpty(deps), macros, False) # Glob the set of dependencies.
 
         for dep in deps:
             if isPhony(dep):
@@ -388,7 +428,7 @@ class MakeUtil:
                 parts = runner.shSplit(line)
                 command = parts[0].strip()
 
-                parts = runner.globArgs(parts, runner.ShellState()) # Glob all, except the first...
+                parts = self.globArgs(parts, macros) # Glob all, except the first...
                 parts = parts[1:] # Remove leading include...
                 ignoreError = False
 

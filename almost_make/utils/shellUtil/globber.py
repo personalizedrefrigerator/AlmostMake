@@ -17,8 +17,10 @@ import os, fnmatch, re
 HAS_PATTERN = re.compile(r"([^\\]{2})*[\*\[\]]")
 
 # Glob the contents of [text] if it appears to be a path using
-# patterns supported by Python's fnmatch module.
-def glob(text, cwd):
+# patterns supported by Python's fnmatch module. If no matches
+# are found and [defaultCase] is given, return [defaultCase].
+# Otherwise, return [text], possibly with tilde-expansion.
+def glob(text, cwd, defaultCase = None):
     # First, determine if the text needs to be/can be globbed.
     canGlob = False
     canSimplify = False
@@ -95,7 +97,10 @@ def glob(text, cwd):
     # If we didn't find any matches, just return the text we were given (perhaps with 
     # tilde-expansion).
     if len(matchingPaths) == 0:
-        matchingPaths = [ text ]
+        if defaultCase == None:
+            matchingPaths = [ text ]
+        else:
+            matchingPaths = defaultCase
 
     return matchingPaths
 
