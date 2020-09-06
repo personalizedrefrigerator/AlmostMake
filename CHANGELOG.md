@@ -1,4 +1,7 @@
 
+## 0.3.1
+ * Fix include directive bug: `include: dependency1 ...` is not an include directive.
+
 ## 0.3.0
  * Support for finding files relative to `VPATH`
 
@@ -22,7 +25,7 @@
 
 ## 0.1.1
  * Built-in pipe interface: If the first argument has a non-zero return code, return that, rather than the return code of the right!
- * Add `$(words ...)` and `$(sort ...)` macro functions. `$(words a b c)` returns 3, the number of words it is given. `$(sort ...)` sorts the list of words it is given and removes duplicates.
+ * Add `$(words ...)` and `$(sort ...)` macro functions. `$(words a b c)` returns 3, the number of words it is given. `$(sort ...)` sorts the  list of words it is given and removes duplicates.
  * Fix `$(wildcard ...)`!
 
 ## 0.1.0
