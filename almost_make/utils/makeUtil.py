@@ -21,7 +21,7 @@ import almost_make.utils.errorUtil as errorUtility
 
 # Regular expressions
 SPACE_CHARS = re.compile(r'\s+')
-INCLUDE_DIRECTIVE_EXP = re.compile(r"^\s*(include|\.include|-include|sinclude)")
+INCLUDE_DIRECTIVE_EXP = re.compile(r"^\s*(include|\.include|-include|sinclude)\s+")
 
 # Targets that are used by this parser/should be ignored.
 MAGIC_TARGETS = \
