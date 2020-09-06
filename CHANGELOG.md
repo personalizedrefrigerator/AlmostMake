@@ -1,4 +1,7 @@
 
+## 0.3.2
+ * Support GNUMake-style `generates: ;` empty recipes.
+
 ## 0.3.1
  * Fix include directive bug: `include: dependency1 ...` is not an include directive.
 

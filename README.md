@@ -173,10 +173,11 @@ $ python3 -m pip install --user --upgrade setuptools wheel twine
 At present, `AlmostMake` **does not support** the following, notable features.
 
 In `almake`:
- * `VPATH`
  * `$(shell ...)` that can use `almake_shell`
  * BSDMake-style conditionals
  * BSDMake-style `.include < ... >` includes
+ * Defining recipes via `a:: b` and `a! b`.
+ * Pre-defined recipes (e.g. `.o` from `.c`)
 
 In `almake_shell`/built-in shell:
  * `if` statements, loops, functions.
