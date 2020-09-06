@@ -107,11 +107,18 @@ class MakeUtil:
                     else:
                         continue
                 sepIndex = line.index(':')
-                allGenerates = SPACE_CHARS.split(line[:sepIndex].strip())
-                preReqs = line[sepIndex + 1 :].strip()
-                
+
+                # Get what is generated.
+                allGenerates = runner.shSplit(line[:sepIndex].strip(), { ' ', '\t', '\n', ';' })
+                allGenerates = runner.removeEqual(allGenerates, ';')
+                allGenerates = runner.removeEmpty(allGenerates)
+
                 # Get the dependencies.
-                dependsOn = SPACE_CHARS.split(preReqs)
+                preReqs = line[sepIndex + 1 :].strip()
+                dependsOn = runner.shSplit(preReqs, { ' ', '\t', '\n', ';' })
+                dependsOn = runner.removeEqual(dependsOn, ';')
+                dependsOn = runner.removeEmpty(dependsOn)
+
                 for generates in allGenerates:
                     currentDeps = []
                     currentDeps.extend(dependsOn)
