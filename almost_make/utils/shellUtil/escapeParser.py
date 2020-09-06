@@ -23,17 +23,27 @@ def parseEscapes(text, escapes={ '033': '\033', 't': '\t', 'r': '\r', 'n': '\n',
     return result
 
 # Split [text] by character, only if [splitChar] isn't immediately 
-# following [escapeChar].
-def escapeSafeSplit(text, splitChar, escapeChar):
+# following [escapeChar]. If [splitInQuotes] is false, do not split
+# if a region is surrounded by single or double quotes. Quotes can 
+# be escaped.
+def escapeSafeSplit(text, splitChar, escapeChar, splitInQuotes=True):
     result = []
     buff = ""
     escaped = False
+    inQuotes = None
 
     if len(text) == 0:
         return []
     
     for char in text:
-        if char == splitChar and not escaped:
+        if splitInQuotes and char in { "'", '"' } and not escaped:
+            if inQuotes == char:
+                inQuotes = None
+            else:
+                inQuotes = char
+            
+            buff += char      
+        elif char == splitChar and not escaped and inQuotes == None:
             result.append(buff)
             buff = ''
         elif char == escapeChar and not escaped:
@@ -70,3 +80,8 @@ if __name__ == "__main__":
     assertEql(escapeSafeSplit(" ", ',', '\\'), [' '])
     assertEql(escapeSafeSplit(" \\,a", ',', '\\'), [' ,a'])
     assertEql(escapeSafeSplit(" \\,a, b", ',', '\\'), [' ,a', ' b'])
+    assertEql(escapeSafeSplit(" \\,a, b", ',', '\\', True), [' ,a', ' b'])
+    assertEql(escapeSafeSplit(" \\,'a, b'", ',', '\\', True), [' ,\'a, b\''])
+    assertEql(escapeSafeSplit("a,b", ',', '\\', True), ['a', 'b'])
+    assertEql(escapeSafeSplit("\\'a,b\\'", ',', '\\', True), ['\'a,b\''])
+    assertEql(escapeSafeSplit("\\'a,b\\'", ',', '\\', False), ['\'a', 'b\''])

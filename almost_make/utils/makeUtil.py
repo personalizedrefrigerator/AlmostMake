@@ -137,6 +137,41 @@ class MakeUtil:
         targetNames.extend(specialTargetNames)
         return (result, targetNames)
 
+    # Find a file with relative path [givenPath]. If 
+    # VPATH is in macros, search each semi-colon, colon,
+    # or space-separated entry for the file. Returns the 
+    # path to the file, or None, if the file does not exist.
+    def findFile(self, givenPath, macros):
+        givenPath = os.path.normcase(givenPath)
+        if os.path.exists(givenPath):
+            return givenPath
+        elif not 'VPATH' in macros:
+            return None
+        
+        searchPath = [ os.path.abspath('.') ]
+
+        vpath = macros['VPATH']
+
+        # Split first by ';', then by ':', then finally,
+        # try to split by space characters.
+        splitOrder = [';', ':', ' ']
+        split = []
+        for char in splitOrder:
+            split = escaper.escapeSafeSplit(vpath, char, True)
+            split = runner.removeEmpty(split)
+
+            if len(split) > 1:
+                break
+        
+        searchPath.extend([ os.path.abspath(os.path.normcase(part)) for part in split ])
+
+        for part in searchPath:
+            path = os.path.join(part, givenPath)
+
+            if os.path.exists(path):
+                return path
+        return None
+
     # Generate [target] if necessary. Returns
     # True if generated, False if not necessary.
     def satisfyDependencies(self, target, targets, macros):
@@ -192,7 +227,9 @@ class MakeUtil:
                         
                         targets[target] = (newDeps, rules)
                         break
-        selfExists = os.path.exists(target)
+        
+        targetPath = self.findFile(target, macros)
+        selfExists = targetPath != None
         selfMTime = 0
 
         if not target in targets:
@@ -201,11 +238,12 @@ class MakeUtil:
             else:
                 self.errorUtil.reportError("No rule to make %s." % target)
                 return True # If still running, the user wants us to exit successfully.
-        runRecipe = False
+        
         deps, commands = targets[target]
+        runRecipe = False
         
         if selfExists:
-            selfMTime = os.path.getmtime(target)
+            selfMTime = os.path.getmtime(targetPath)
 
         def isPhony(target):
             if not ".PHONY" in targets:
@@ -213,28 +251,43 @@ class MakeUtil:
             
             phonyTargets,_ = targets['.PHONY']
             return target in phonyTargets or target in MAGIC_TARGETS
+        
         selfPhony = isPhony(target)
         
         def needGenerate(other):
-            return isPhony(other) \
-                or not os.path.exists(other) \
-                or selfMTime > os.path.getmtime(other) \
-                or not selfExists \
-                or selfPhony
+            if isPhony(other) or selfPhony or not selfExists:
+                return True
 
-        if isPhony(target):
+            pathToOther = self.findFile(other, macros)
+
+            return pathToOther == None # or selfMTime > os.path.getmtime(pathToOther)
+
+        if selfPhony:
             runRecipe = True
 
+        if not selfExists:
+            runRecipe = True
+        
+        depPaths = []
+        deps = runner.removeEmpty(deps)
+
+        for dep in deps:
+            if isPhony(dep):
+                depPaths.append(dep)
+            pathToDep = self.findFile(dep, macros)
+
+            depPaths.append(pathToDep or dep)
+
         if not runRecipe:
-            if not selfExists:
-                runRecipe = True
-            else:
-                for dep in deps:
-                    if isPhony(dep) or \
-                        not os.path.exists(dep) \
-                        or os.path.getmtime(dep) >= selfMTime:
-                            runRecipe = True
-                            break
+            for dep in depPaths:
+                if isPhony(dep):
+                    runRecipe = True
+                    break
+
+                if os.path.getmtime(dep) > selfMTime:
+                    runRecipe = True
+                    break
+        
         # Generate each dependency, if necessary.
         if not runRecipe:
             return False
@@ -272,10 +325,10 @@ class MakeUtil:
         # (1) all dependencies are satisfied
         # (2) we need to run each command in recipe.
         # Define several macros the client will expect here:
-        macros["@"] = target
-        macros["^"] = " ".join(deps)
+        macros["@"] = targetPath or target
+        macros["^"] = " ".join(depPaths)
         if len(deps) >= 1:
-            macros["<"] = deps[0]
+            macros["<"] = depPaths[0]
 
         for command in commands:
             command = self.macroUtil.expandMacroUsages(command, macros).strip()
@@ -345,6 +398,12 @@ class MakeUtil:
 
                 for fileName in parts:
                     fileName = runner.stripQuotes(fileName)
+
+                    if not os.path.exists(fileName):
+                        foundName = self.findFile(fileName, macros)
+
+                        if foundName != None:
+                            fileName = foundName
 
                     if not os.path.exists(fileName):
                         if ignoreError:
