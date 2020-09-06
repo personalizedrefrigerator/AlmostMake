@@ -695,7 +695,7 @@ if __name__ == "__main__":
     result, _ = evalScript("mkdir foo && rm -d foo && ls -m | grep -v foo", macroUtil, macros, defaultFlags=[])
     assertEql(result, 0, "Test add and remove a directory.")
 
-    result, _ = evalScript("mkdir __pycache__ 2>&1", macroUtil, macros, defaultFlags=[])
+    result, _ = evalScript("mkdir ./ 2>&1", macroUtil, macros, defaultFlags=[])
     assertNotEql(result, 0, "Test fails on attempt to create existing directory.")
 
     result, _ = evalScript("mkdir -p testing123/a/b/c/d/e/f && rm -r testing123 && ls -m | grep -v testing123", macroUtil, macros, defaultFlags=[])
