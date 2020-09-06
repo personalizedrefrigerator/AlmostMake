@@ -1,9 +1,15 @@
 
+## 0.3.0
+ * Support for finding files relative to `VPATH`
+
+## 0.2.1
+ * Fix a bug: `if not targets['.SUFFIXES']: ...` should have been `if not '.SUFFIXES' in targets: ...` 
+
 ## 0.2.0
  * Built-in `cat` does not stop early on failure to decode/open one or more arguments.
  * GNUMake-style conditionals!
     * You can now use `ifeq`, `ifneq`, `ifdef`, and `ifndef`.
- * Added macro function `$(subst from,to,text)`
+ * Added macro functions `$(subst from,to,text)` and `$(patsubst pattern,replacement,text)`
 
 ## 0.1.3
  * `$(dir ...)`, `$(notdir ...)`, `$(abspath ...)`, and `$(realpath ...)` functions.
