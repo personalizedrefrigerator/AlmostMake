@@ -4,7 +4,7 @@
 
 clean: 
 
-check: bracketCheck vpathCheck
+check: bracketCheck vpathCheck vpathCheck2
 	$(MAKE) -C subdir1 -n | grep "echo"
 	$(MAKE) -C includeTest
 	@echo PASS | grep PASS
@@ -18,7 +18,7 @@ ${A}2:
 bracketCheck: Foo2
 	echo ${A} | grep "Foo"
 
-vpathCheck:
-	cd vpathCheck && $(MAKE)
+vpathCheck%:
+	cd $@ && $(MAKE)
 
-.PHONY: check clean bracketCheck $(A)2 vpathCheck
+.PHONY: check clean bracketCheck $(A)2 vpathCheck vpathCheck2
