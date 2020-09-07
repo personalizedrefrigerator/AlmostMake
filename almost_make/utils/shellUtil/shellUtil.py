@@ -105,10 +105,10 @@ CUSTOM_COMMANDS = \
 }
 
 def customExit(args, stdin, stdout, stderr, state):
-    if len(args) == 0:
+    if len(args) == 1:
         sys.exit(0)
     else:
-        sys.exit(int(args[0]))
+        return int(args[1])
 
 LS_DIRECTORY_COLOR = FORMAT_COLORS['BLUE']
 LS_LINK_COLOR = FORMAT_COLORS['BLUE']

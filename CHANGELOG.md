@@ -1,4 +1,7 @@
 
+## 0.3.3
+ * Fix `exit` command.
+
 ## 0.3.2
  * Support GNUMake-style `generates: ;` empty recipes.
 
