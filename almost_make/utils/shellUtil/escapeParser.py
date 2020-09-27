@@ -42,7 +42,7 @@ def escapeSafeSplit(text, splitChar, escapeChar, splitInQuotes=True):
             else:
                 inQuotes = char
             
-            buff += char      
+            buff += char
         elif char == splitChar and not escaped and inQuotes == None:
             result.append(buff)
             buff = ''

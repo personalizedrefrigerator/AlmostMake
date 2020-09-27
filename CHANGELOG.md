@@ -1,3 +1,10 @@
+## 0.4.0
+ * Calling custom `echo` with no arguments now produces a single newline.
+ * `grep` can accept an empty pattern.
+ * Added macro functions `$(firstword some words here)`, `$(lastword more words)`, and `$(word 3,1 2 3)`.
+
+## 0.3.3
+ * Fix `exit` command.
 
 ## 0.3.2
  * Support GNUMake-style `generates: ;` empty recipes.

@@ -41,17 +41,23 @@ class MakeUtil:
     justPrint = False # Print commands, without evaluating.
 
     def __init__(self):
-        self.macroCommands["shell"] = lambda code, macros: os.popen(self.macroUtil.expandMacroUsages(code, macros)).read().rstrip(' \n\r\t') # To-do: Use the built-in shell if specified...
-        self.macroCommands["wildcard"] = lambda argstring, macros: " ".join([ shlex.quote(part) for part in self.glob(self.macroUtil.expandMacroUsages(argstring, macros), macros) ])
         self.macroCommands["words"] = lambda argstring, macros: str(len(SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros))))
         self.macroCommands["sort"] = lambda argstring, macros: " ".join(sorted(list(set(SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros))))))
         self.macroCommands["strip"] = lambda argstring, macros: argstring.strip()
+
+        self.macroCommands["shell"] = lambda code, macros: os.popen(self.macroUtil.expandMacroUsages(code, macros)).read().rstrip(' \n\r\t') # To-do: Use the built-in shell if specified...
+        self.macroCommands["wildcard"] = lambda argstring, macros: " ".join([ shlex.quote(part) for part in self.glob(self.macroUtil.expandMacroUsages(argstring, macros), macros) ])
         self.macroCommands["dir"] = lambda argstring, macros: " ".join([ os.path.dirname(arg) for arg in SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros)) ])
         self.macroCommands["notdir"] = lambda argstring, macros: " ".join([ os.path.basename(arg) for arg in SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros)) ])
         self.macroCommands["abspath"] = lambda argstring, macros: " ".join([ os.path.abspath(arg) for arg in SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros)) ])
         self.macroCommands["realpath"] = lambda argstring, macros: " ".join([ os.path.realpath(arg) for arg in SPACE_CHARS.split(self.macroUtil.expandMacroUsages(argstring, macros)) ])
+
         self.macroCommands["subst"] = lambda argstring, macros: self.makeCmdSubst(argstring, macros)
         self.macroCommands["patsubst"] = lambda argstring, macros: self.makeCmdSubst(argstring, macros, True)
+        self.macroCommands["firstword"] = lambda argstring, macros: self.getWordOf(argstring, macros, selectWord = 0)
+        self.macroCommands["lastword"] = lambda argstring, macros: self.getWordOf(argstring, macros, selectWord = -1)
+        self.macroCommands["word"] = lambda argstring, macros: self.getWordOf(argstring, macros)
+        # self.macroCommands["filter"] # pattern...,text
 
         self.errorUtil = errorUtility.ErrorUtil()
         self.macroUtil = macroUtility.MacroUtil()
@@ -547,6 +553,55 @@ class MakeUtil:
             
             return " ".join(runner.removeEmpty(result))
 
+    # Example: $(word 3, get the third word) -> third
+    # If the word with the given index does not exist, return
+    # the empty string.
+    # Ref: https://www.gnu.org/software/make/manual/html_node/Text-Functions.html#index-word
+    # 
+    # Note:
+    #    If [selectWord] is not None, then attempt to select the specified word.
+    #    For example, getWordOf(..., selectWord=-1) selects the last word in argstring.
+    #    If selectWord is None, then determine the word to select from the contents of 
+    #    [argstring].
+    def getWordOf(self, argstring, macros, selectWord=None):
+        selectIndex = selectWord
+        argText = argstring.strip()
+
+        if selectIndex is None:
+            args = argstring.split(',')
+            
+            if len(args) <= 1:
+                self.errorUtil.reportError(
+                    "Not enough arguments to word selection macro. Context: %s" % argstring
+                )
+
+                return ""
+            
+            selectIndexText = self.macroUtil.expandMacroUsages(args[0], macros)
+
+            try:
+                # From argstring (one-indexed) => string indicies (zero-indicies).
+                selectIndex = int(selectIndexText) - 1
+                argText = ','.join(args[1:]).strip()
+            except ValueError as ex:
+                self.errorUtil.reportError(
+                    "First argument to word selection macros must be an integer. Context: %s"
+                        % argstring
+                )
+                return ""
+        
+        argText = self.macroUtil.expandMacroUsages(argText, macros)
+        words = SPACE_CHARS.split(argText)
+
+        # TODO: Is there a way to do this with if-statements?
+        try:
+            return words[selectIndex]
+        except IndexError:
+            return ""
+
+
+
+    ## Intended for use directly by clients:
 
     # Run commands specified to generate
     # dependencies of target by the contents
