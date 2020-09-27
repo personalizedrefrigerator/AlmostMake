@@ -8,6 +8,16 @@ all: $(wildcard *.tx*)
 	echo $(sort foo bar baz) | grep -Fx "bar baz foo"
 	echo $(words $(sort a a b c)) | grep 3
 	echo $(strip       b   ) | grep ^b$$
+	echo $(firstword Does it get the first word?) | grep -Fx "Does"
+	echo $(lastword Does it get the last word?) | grep -Fx "word?"
+	echo $(word 99999, a b c d e f    g) | grep -Fx ""
+	echo $(word 3, 1 2 3) | grep -Fx 3
+	echo $(word 4, a	thing to test) | grep -Fx "test"
+	echo $(word 1,) | grep -Fx ""
+	echo $(word 1, firstword) | grep -Fx "firstword"
+	echo $(firstword 1,firstword) | grep -Fx "1,firstword"
+	echo $(lastword $(strip thing       )) | grep -Fx "thing"
+
 	echo $(dir foo/bar/baz)  | grep -Fx "foo/bar"
 	echo $(dir /a/b/c/)  | grep -Fx "/a/b/c"
 	echo $(notdir /a/b/c/d.txt)  | grep -Fx "d.txt"

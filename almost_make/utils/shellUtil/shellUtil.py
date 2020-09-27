@@ -246,6 +246,9 @@ def customCd(args, stdin, stdout, stderr, state):
 
 def customEcho(args, stdin, stdout, stderr, state):
     if len(args) == 1:
+        # No arguments? Print a newline.
+        cprint('\n', file=stdout)
+
         return 0
     
     doEscapes = False
@@ -392,6 +395,10 @@ def customGrep(args, stdin, stdout, stderr, state):
                 flags = flags | re.IGNORECASE
 
             patterns.append(re.compile(part, flags))
+    else:
+        # If no default arguments, grep was probably called
+        # with an empty pattern. Note this.
+        patterns.append(re.compile('')) 
     
     def matchesLine(line):
         matches = []
@@ -585,7 +592,7 @@ def getCustomCommands(macros):
         addCustomCommand("ls", 1, customLs)
         result["dir"] = result["ls"]
         addCustomCommand("pwd", 1, customPwd)
-        addCustomCommand("echo", 2, customEcho)
+        addCustomCommand("echo", 1, customEcho)
         addCustomCommand("touch", 2, customTouch)
         addCustomCommand("cat", 2, customCat)
         addCustomCommand("grep", 2, customGrep)
