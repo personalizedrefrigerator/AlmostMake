@@ -34,5 +34,5 @@ setuptools.setup(
             "almake_shell = almost_make.utils.shellUtil.interactiveShell:main"
         ]
     },
-    python_requires=">=3.6"
+    python_requires=">=3.6.8"
 )

@@ -1,3 +1,8 @@
+## 0.4.1
+ * If running `make a`, for files `a`, `b`, and `c`, if `a` depends on `b` and 
+      `b` depends on `c`, previously, a change to `c` would not remake `a`! This has been fixed!
+ * Python 3.6.8 is (mostly) supported! Allow package distribution for it on PyPI.
+
 ## 0.4.0
  * Calling custom `echo` with no arguments now produces a single newline.
  * `grep` can accept an empty pattern.

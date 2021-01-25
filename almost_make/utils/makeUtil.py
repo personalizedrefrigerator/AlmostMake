@@ -225,61 +225,95 @@ class MakeUtil:
         
         return result
 
-    # Generate [target] if necessary. Returns
-    # True if generated, False if not necessary.
-    def satisfyDependencies(self, target, targets, macros):
-        target = target.strip()
-        if not target in targets:
-            # Can we generate a recipe?
-            for key in targets.keys():
-    #            print("Checking target %s..." % key)
-                if "%" in key:
-                    sepIndex = key.index("%")
-                    beforeContent = key[:sepIndex]
-                    afterContent = key[sepIndex + 1 :]
-                    if target.startswith(beforeContent) and target.endswith(afterContent):
-                        deps, rules = targets[key]
-                        newKey = target
-                        newReplacement = newKey[sepIndex : len(newKey) - len(afterContent)]
-                        deps = " ".join(deps)
-                        deps = deps.split("%")
-                        deps = newReplacement.join(deps)
-                        deps = deps.split(" ")
+    # Generate a recipe for [target] and add it to [targets].
+    # Returns True if there is now a recipe for [target] in [targets],
+    #  False otherwise.
+    def generateRecipeFor(self, target, targets, macros):
+        if target in targets:
+            return True
+        
+        generatedTarget = False
 
-                        targets[newKey] = (deps, rules)
-                        break
-                elif key.startswith(".") and "." in key[1:]:
-                    shortKey = key[1:] # Remove the first '.'
-                    parts = shortKey.split('.') # NOT a regex.
-                    requires = '.' + parts[0].strip()
-                    creates = '.' + parts[1].strip()
+        # Can we generate a recipe?
+        for key in targets.keys():
+#            print("Checking target %s..." % key)
+            if "%" in key:
+                sepIndex = key.index("%")
+                beforeContent = key[:sepIndex]
+                afterContent = key[sepIndex + 1 :]
+                if target.startswith(beforeContent) and target.endswith(afterContent):
+                    deps, rules = targets[key]
+                    newKey = target
+                    newReplacement = newKey[sepIndex : len(newKey) - len(afterContent)]
+                    deps = " ".join(deps)
+                    deps = deps.split("%")
+                    deps = newReplacement.join(deps)
+                    deps = deps.split(" ")
+
+                    targets[newKey] = (deps, rules)
+                    generatedTarget = True
+                    break
+            elif key.startswith(".") and "." in key[1:]:
+                shortKey = key[1:] # Remove the first '.'
+                parts = shortKey.split('.') # NOT a regex.
+                requires = '.' + parts[0].strip()
+                creates = '.' + parts[1].strip()
+                
+                # Don't evaluate... The user probably didn't intend for us to
+                # make a recipe from this.
+                if len(parts) > 2:
+                    continue
+                
+                if not ".SUFFIXES" in targets:
+                    continue
+                
+                validSuffixes,_ = targets[".SUFFIXES"]
+                
+                # Are these valid suffixes?
+                if not creates in validSuffixes \
+                        or not requires in validSuffixes:
+                    continue
+                
+                # Does it fit the current target?
+                if target.endswith(creates):
+                    deps,rules = targets[key]
                     
-                    # Don't evaluate... The user probably didn't intend for us to
-                    # make a recipe from this.
-                    if len(parts) > 2:
-                        continue
+                    newDeps = [ dep for dep in deps if dep != '' ]
+                    withoutExtension = target[: - len(creates)]
                     
-                    if not ".SUFFIXES" in targets:
-                        continue
+                    newDeps.append(withoutExtension + requires)
                     
-                    validSuffixes,_ = targets[".SUFFIXES"]
-                    
-                    # Are these valid suffixes?
-                    if not creates in validSuffixes \
-                            or not requires in validSuffixes:
-                        continue
-                    
-                    # Does it fit the current target?
-                    if target.endswith(creates):
-                        deps,rules = targets[key]
-                        
-                        newDeps = [ dep for dep in deps if dep != '' ]
-                        withoutExtension = target[: - len(creates)]
-                        
-                        newDeps.append(withoutExtension + requires)
-                        
-                        targets[target] = (newDeps, rules)
-                        break
+                    targets[target] = (newDeps, rules)
+                    generatedTarget = True
+                    break
+        return generatedTarget
+
+    # Return True iff [target] is not a "phony" target
+    # (as declared by .PHONY). [targets] is the list of all
+    # targets.
+    def isPhony(self, target, targets):
+        if not ".PHONY" in targets:
+            return False
+        
+        phonyTargets,_ = targets['.PHONY']
+        return target in phonyTargets or target in MAGIC_TARGETS
+
+    # Get whether [target] needs to be (re)generated. If necessary,
+    # creates a rule for [target] and adds it to [targets].
+    def prepareGenerateTarget(self, target, targets, macros, visitedSet=None):
+        target = target.strip()
+        
+        if not target in targets:
+            self.generateRecipeFor(target, targets, macros)
+        
+        if visitedSet is None:
+            visitedSet = set()
+        
+        if not target in visitedSet:
+            visitedSet.add(target)
+        else: # Circular dependency?
+            self.errorUtil.reportError("Circular dependency involving %s!" % target)
+            return True
         
         targetPath = self.findFile(target, macros)
         selfExists = targetPath != None
@@ -289,67 +323,66 @@ class MakeUtil:
             if selfExists:
                 return False
             else:
+                # This is an error! We need to generate the target, but
+                # there is no rule for it!
                 self.errorUtil.reportError("No rule to make %s." % target)
-                return True # If still running, the user wants us to exit successfully.
+                return False # If still running, we can't generate this.
         
-        deps, commands = targets[target]
-        runRecipe = False
+        deps, _ = targets[target]
+        deps = self.globArgs(runner.removeEmpty(deps), macros, False) # Glob the set of dependencies.
         
         if selfExists:
             selfMTime = os.path.getmtime(targetPath)
-
-        def isPhony(target):
-            if not ".PHONY" in targets:
-                return False
+        else:
+            return True
+        
+        if self.isPhony(target, targets):
+            return True
+        
+        for dep in deps:
+            if self.isPhony(dep, targets):
+                return True
             
-            phonyTargets,_ = targets['.PHONY']
-            return target in phonyTargets or target in MAGIC_TARGETS
-        
-        selfPhony = isPhony(target)
-        
-        def needGenerate(other):
-            if isPhony(other) or selfPhony or not selfExists:
+            pathToOther = self.findFile(dep, macros)
+
+            # If it doesn't exist...
+            if pathToOther == None:
                 return True
 
-            pathToOther = self.findFile(other, macros)
+            # If we're older than it...
+            if selfMTime < os.path.getmtime(pathToOther):
+                return True
 
-            return pathToOther == None # or selfMTime > os.path.getmtime(pathToOther)
+            if self.prepareGenerateTarget(dep, targets, macros, visitedSet):
+                return True
+        return False
 
-        if selfPhony:
-            runRecipe = True
+    # Generate [target] if necessary (i.e. run recipes to create). Returns
+    # True if generated, False if not necessary.
+    def satisfyDependencies(self, target, targets, macros):
+        target = target.strip()
 
-        if not selfExists:
-            runRecipe = True
+        if not self.prepareGenerateTarget(target, targets, macros):
+            return False
+        
+        targetPath = self.findFile(target, macros)
+
+        deps, commands = targets[target]
+        deps = self.globArgs(runner.removeEmpty(deps), macros, False) # Glob the set of dependencies.
         
         depPaths = []
-        deps = self.globArgs(runner.removeEmpty(deps), macros, False) # Glob the set of dependencies.
-
-        for dep in deps:
-            if isPhony(dep):
-                depPaths.append(dep)
-            pathToDep = self.findFile(dep, macros)
-
-            depPaths.append(pathToDep or dep)
-
-        if not runRecipe:
-            for dep in depPaths:
-                if isPhony(dep):
-                    runRecipe = True
-                    break
-
-                if os.path.getmtime(dep) > selfMTime:
-                    runRecipe = True
-                    break
         
-        # Generate each dependency, if necessary.
-        if not runRecipe:
-            return False
+        for dep in deps:
+            if self.isPhony(dep, targets):
+                depPaths.append(dep)
+            else:
+                depPaths.append(self.findFile(dep, macros) or dep)
         
         pendingJobs = []
 
         for dep in deps:
     #        print("Checking dep %s; %s" % (dep, str(needGenerate(dep))))
-            if dep.strip() != "" and needGenerate(dep):
+            if dep.strip() != "" and self.prepareGenerateTarget(dep, targets, macros):
                 self.jobLock.acquire()
                 if self.currentJobs < self.maxJobs and not dep in self.pending:
                     self.currentJobs += 1
@@ -516,8 +549,6 @@ class MakeUtil:
             words = SPACE_CHARS.split(text.strip())
             result = []
 
-            escaped = False
-
             pattern = escaper.escapeSafeSplit(replaceText, '%', '\\')
             replaceWith = escaper.escapeSafeSplit(replaceWith, '%', '\\')
 
@@ -583,7 +614,7 @@ class MakeUtil:
                 # From argstring (one-indexed) => string indicies (zero-indicies).
                 selectIndex = int(selectIndexText) - 1
                 argText = ','.join(args[1:]).strip()
-            except ValueError as ex:
+            except ValueError:
                 self.errorUtil.reportError(
                     "First argument to word selection macros must be an integer. Context: %s"
                         % argstring

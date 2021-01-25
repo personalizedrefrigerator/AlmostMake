@@ -11,6 +11,7 @@ check: all
 all: main
 
 clean:
+	@echo "Cleaning!"
 	-rm -f main.o
 	-rm -f main
 
