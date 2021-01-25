@@ -15,7 +15,7 @@ all:
 # Danger! This installs almake! Do not run this if you don't want to install
 # it!
 install: clean build
-	python3 -m pip install --force-reinstall .
+	python3 -m pip install --user --force-reinstall .
 	#bash -c "cd testEnv; source bin/activate; python3 -m pip install ../"
 
 # Test the embedded shell!
