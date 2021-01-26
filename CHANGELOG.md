@@ -1,5 +1,6 @@
 ## 0.5.1 (dev)
  * Fix circular dependency warnings shown when there are no circular dependencies.
+ * `\u` expands to the username in `almake_shell`.
 
 ## 0.5.0
  * Multiple template recipes with the same target format (e.g. %.o: %.c and %.o: %.cc)

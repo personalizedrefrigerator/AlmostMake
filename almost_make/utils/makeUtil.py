@@ -23,10 +23,6 @@ import almost_make.utils.errorUtil as errorUtility
 SPACE_CHARS = re.compile(r'\s+')
 INCLUDE_DIRECTIVE_EXP = re.compile(r"^\s*(include|\.include|-include|sinclude)\s+")
 
-# Some targets need duplicates (e.g. %.o: %.c vs %.o: %.cc)
-DUPLICATE_FORMAT_STR = "[DUPLICATE %d] "
-DUPLICATE_CHECK_EXP  = re.compile(r"^\[DUPLICATE (\d+)\] (.*)$")
-
 # Targets that are used by this parser/should be ignored.
 MAGIC_TARGETS = \
 {

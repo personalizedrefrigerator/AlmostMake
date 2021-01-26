@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import cmd, os, sys
+import cmd, os, sys, getpass
 import almost_make.utils.shellUtil.shellUtil as shell
 import almost_make.utils.shellUtil.runner as runner
 import almost_make.utils.macroUtil as macroUtility
@@ -48,6 +48,12 @@ class SimpleShell(cmd.Cmd):
             self.promptEscapeSequences["h"] = uname.nodename
         except:
             self.promptEscapeSequences["h"] = "unknown"
+        
+        try:
+            login = getpass.getuser()
+            self.promptEscapeSequences["u"] = login
+        except:
+            self.promptEscapeSequences["u"] = "unknown"
 
         # Set the prompt.
         if "PS1" in os.environ:
