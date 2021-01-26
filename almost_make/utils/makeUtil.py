@@ -251,12 +251,9 @@ class MakeUtil:
     # Generate a recipe for [target] and add it to [targets].
     # Returns True if there is now a recipe for [target] in [targets],
     #  False otherwise.
-    def generateRecipeFor(self, target, targets, macros, visitedSet=None):
+    def generateRecipeFor(self, target, targets, macros):
         if target in targets:
             return True
-        
-        if not visitedSet:
-            visitedSet = set()
         
         generatedTarget = False
         potentialNewRules = []
@@ -360,22 +357,20 @@ class MakeUtil:
 
     # Get whether [target] needs to be (re)generated. If necessary,
     # creates a rule for [target] and adds it to [targets].
-    def prepareGenerateTarget(self, target, targets, macros, visitedSet=None):
+    def prepareGenerateTarget(self, target, targets, macros, visitingSet=None):
         target = target.strip()
         
-        if visitedSet is None:
-            visitedSet = set()
+        if visitingSet is None:
+            visitingSet = set()
         
-        if not target in visitedSet:
-            visitedSet.add(target)
-        else: # Circular dependency?
+        if target in visitingSet: # Circular dependency?
             self.errorUtil.logWarning("Circular dependency involving %s!!!" % target)
 
             # Just return whether it exists or not.
             return self.findFile(target, macros) == None
         
         if not target in targets:
-            self.generateRecipeFor(target, targets, macros, visitedSet)
+            self.generateRecipeFor(target, targets, macros)
         
         targetPath = self.findFile(target, macros)
         selfExists = targetPath != None
@@ -415,7 +410,11 @@ class MakeUtil:
             if selfMTime < os.path.getmtime(pathToOther):
                 return True
 
-            if self.prepareGenerateTarget(dep, targets, macros, visitedSet):
+            visitingSet.add(target)
+            needGenerateDep = self.prepareGenerateTarget(dep, targets, macros, visitingSet)
+            visitingSet.remove(target)
+
+            if needGenerateDep:
                 return True
         return False
 
