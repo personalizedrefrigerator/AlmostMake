@@ -24,7 +24,7 @@ ARGUMENT_MAPPINGS = \
 JUST_FLAGS = \
 {
     'help', 'keep-going', 'print-expanded', 'just-print', 'silent', 'built-in-shell',
-    'print-directory'
+    'print-directory', 'undefined-is-error'
 }
 
 # Don't save these when we recurse...
@@ -64,6 +64,10 @@ def printHelp():
     print("\t\t\t Maximum number of jobs (e.g. almake -j 8). ")
     cprint("    -s, --silent", FORMAT_COLORS['GREEN'])
     print("\t\t In most cases, don't print output.")
+    cprint("    --undefined-is-error", FORMAT_COLORS['GREEN'])
+    print("\t\t Display an error when attempting to use an undefined macro.")
+    cprint("    --expand-undefined-to value", FORMAT_COLORS['GREEN'])
+    print("\t Expand undefined macros to value, rather than expanding to nothing.")
     cprint("    -b, --built-in-shell", FORMAT_COLORS['GREEN'])
     print("\t Use the built-in shell for commands in the makefile. This can also be enabled as follows:")
     cprint("   export ", FORMAT_COLORS['PURPLE'])
@@ -153,6 +157,12 @@ def main(args=sys.argv):
 
         if 'file' in args:
             fileName = args['file']
+        
+        if 'expand-undefined-to' in args:
+            makeUtil.setDefaultMacroExpansion(runner.stripQuotes(args["expand-undefined-to"]))
+        
+        if 'undefined-is-error' in args:
+            makeUtil.setDefaultMacroExpansion(None)
 
         if len(args['default']) > 0:
             targets = [ ]
@@ -194,7 +204,8 @@ def main(args=sys.argv):
             for target in targets:
                 makeUtil.runMakefile(fileContents, target, defaultMacros, overrideMacros)
         else:
-            contents, macros = macroUtil.expandMacros(fileContents, defaultMacros)
+            contents, macros = macroUtil.expandAndDefineMacros(fileContents, defaultMacros)
+            contents, macros = makeUtil.handleIncludes(contents, macros)
             print(contents)
 
         if 'print-directory' in args:

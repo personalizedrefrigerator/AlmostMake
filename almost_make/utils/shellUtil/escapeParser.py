@@ -1,10 +1,12 @@
 #!/usr/bin/python3
 
-# Parse escape sequences.
+# Parses escape sequences.
+
+DEFAULT_ESCAPE_SEQUENCES = { '033': '\033', 't': '\t', 'r': '\r', 'n': '\n', 'b': '\b', 'a': '\a', '\\': '\\' }
 
 # Replace all escape sequences in [text] 
 # with their mappings in [escapes] (without the leading '\\', see default argument).
-def parseEscapes(text, escapes={ '033': '\033', 't': '\t', 'r': '\r', 'n': '\n', 'b': '\b', 'a': '\a', '\\': '\\' }):
+def parseEscapes(text, escapes=DEFAULT_ESCAPE_SEQUENCES, escapeChar='\\'):
     result = ""
     buff = ""
     escaped = False
@@ -15,7 +17,7 @@ def parseEscapes(text, escapes={ '033': '\033', 't': '\t', 'r': '\r', 'n': '\n',
             result += escapes[buff]
             buff = ''
             escaped = False
-        elif char == '\\':
+        elif char == escapeChar:
             result += buff[:len(buff) - 1]
             buff = ""
             escaped = True
@@ -73,6 +75,10 @@ if __name__ == "__main__":
     assertEql(parseEscapes("A test of this\\n", {}), "A test of thisn")
     assertEql(parseEscapes("A \\033[32m test! \\033[0m"), "A \033[32m test! \033[0m")
     assertEql(parseEscapes("\\033[32mabc\\033[0m"), "\033[32mabc\033[0m")
+    assertEql(parseEscapes("Well, a more complicated test", 
+        { "a more complicated test": "Well, it passed?" }, "Well, "), "Well, it passed?")
+    assertEql(parseEscapes("\\[\\033[36m\\]", { "033": "\033", "[": "", "]": ""}),
+            "\033[36m")
 
     assertEql(escapeSafeSplit("A,test,that,is,simple.", ',', '\\'), ['A', 'test', 'that', 'is', 'simple.'])
     assertEql(escapeSafeSplit("A,test\\n,that,is less,simple.", ',', '\\'), ['A', 'testn', 'that', 'is less', 'simple.'])

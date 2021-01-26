@@ -23,6 +23,10 @@ import almost_make.utils.errorUtil as errorUtility
 SPACE_CHARS = re.compile(r'\s+')
 INCLUDE_DIRECTIVE_EXP = re.compile(r"^\s*(include|\.include|-include|sinclude)\s+")
 
+# Some targets need duplicates (e.g. %.o: %.c vs %.o: %.cc)
+DUPLICATE_FORMAT_STR = "[DUPLICATE %d] "
+DUPLICATE_CHECK_EXP  = re.compile(r"^\[DUPLICATE (\d+)\] (.*)$")
+
 # Targets that are used by this parser/should be ignored.
 MAGIC_TARGETS = \
 {
@@ -68,9 +72,17 @@ class MakeUtil:
         self.macroUtil.addMacroDefCondition(lambda line: not line.startswith(self.recipeStartChar))
         self.macroUtil.addLazyEvalCondition(lambda line: line.startswith(self.recipeStartChar))
 
+        # Makefiles seem to generally expect undefined macros to expand to nothing...
+        self.setDefaultMacroExpansion("")
+
     def setStopOnError(self, stopOnErr):
         self.macroUtil.setStopOnError(stopOnErr)
         self.errorUtil.setStopOnError(stopOnErr)
+    
+    # Expand macros to [expansion] when undefined.
+    # If [expansion] is None, display an error.
+    def setDefaultMacroExpansion(self, expansion=None):
+        self.macroUtil.setDefaultMacroExpansion(expansion)
 
     def setSilent(self, silent):
         self.silent = silent
@@ -91,6 +103,7 @@ class MakeUtil:
     #   to tuples of (dependencies, action)
     # Second item: A list of the targets
     #   with recipies.
+    # This method parses the text of a makefile.
     def getTargetActions(self, content):
         lines = content.split('\n')
         lines.reverse()
@@ -110,45 +123,56 @@ class MakeUtil:
                 if not ':' in line:
                     if len(currentRecipe) > 0:
                         self.errorUtil.reportError("Pre-recipe line must contain separator! Line: %s" % line)
-                    else:
-                        continue
+                    continue
                 sepIndex = line.index(':')
 
-                # Get what is generated.
+                # Get what is generated (the targets).
                 allGenerates = runner.shSplit(line[:sepIndex].strip(), { ' ', '\t', '\n', ';' })
                 allGenerates = runner.removeEqual(allGenerates, ';')
                 allGenerates = runner.removeEmpty(allGenerates)
 
-                # Get the dependencies.
+                # Get the dependencies (everything after the colon).
                 preReqs = line[sepIndex + 1 :].strip()
                 dependsOn = runner.shSplit(preReqs, { ' ', '\t', '\n', ';' })
                 dependsOn = runner.removeEqual(dependsOn, ';')
                 dependsOn = runner.removeEmpty(dependsOn)
 
-                for generates in allGenerates:
-                    currentDeps = []
-                    currentDeps.extend(dependsOn)
-                    if generates in result:
-                        oldDeps, oldRecipe = result[generates]
-                        currentDeps.extend(oldDeps)
-                        oldRecipe.reverse()
-                        currentRecipe.extend(oldRecipe)
-                    
-                    # Clean up & add to output.
-                    outRecipe = [] + currentRecipe
-                    outRecipe.reverse()
-                    result[generates] = (currentDeps, outRecipe)
+                if self.isPatternSubstRecipe(line):
+                    currentRecipe.reverse()
+                    result[line] = ((allGenerates, dependsOn), currentRecipe)
+                else:
+                    for generates in allGenerates:
+                        currentDeps = []
+                        currentDeps.extend(dependsOn)
+                        
+                        if generates in result:
+                            oldDeps, oldRecipe = result[generates]
+                            currentDeps.extend(oldDeps)
+                            oldRecipe.reverse()
+                            currentRecipe.extend(oldRecipe)
+                        
+                        # Clean up & add to output.
+                        outRecipe = [] + currentRecipe
+                        outRecipe.reverse()
+                        result[generates] = (currentDeps, outRecipe)
 
-                    if generates.startswith('.'):
-                        specialTargetNames.append(generates)
-                    else:
-                        targetNames.append(generates)
+                        if generates.startswith('.'):
+                            specialTargetNames.append(generates)
+                        else:
+                            targetNames.append(generates)
                 currentRecipe = []
         # Move targets that start with a '.' to
         # the end...
         targetNames.reverse()
         targetNames.extend(specialTargetNames)
         return (result, targetNames)
+    
+    def isPatternSubstRecipe(self, line):
+        if not '%' in line:
+            return False
+        parts = escaper.escapeSafeSplit(line, '%', '\\')
+
+        return len(parts) > 1
 
     # Get a list of directories (including the current working directory)
     # from macros['VPATH']. Returns an array with one element, the current working
@@ -182,14 +206,13 @@ class MakeUtil:
     # path to the file, or None, if the file does not exist.
     def findFile(self, givenPath, macros):
         givenPath = os.path.normcase(givenPath)
-        
         searchPath = self.getSearchPath(macros)
 
         for part in searchPath:
             path = os.path.join(part, givenPath)
 
             if os.path.exists(path):
-                return path
+                return os.path.relpath(path)
         return None
 
     # Glob [text], but search [VPATH] for additional matches.
@@ -228,31 +251,45 @@ class MakeUtil:
     # Generate a recipe for [target] and add it to [targets].
     # Returns True if there is now a recipe for [target] in [targets],
     #  False otherwise.
-    def generateRecipeFor(self, target, targets, macros):
+    def generateRecipeFor(self, target, targets, macros, visitedSet=None):
         if target in targets:
             return True
         
+        if not visitedSet:
+            visitedSet = set()
+        
         generatedTarget = False
+        potentialNewRules = []
 
         # Can we generate a recipe?
         for key in targets.keys():
-#            print("Checking target %s..." % key)
-            if "%" in key:
-                sepIndex = key.index("%")
-                beforeContent = key[:sepIndex]
-                afterContent = key[sepIndex + 1 :]
-                if target.startswith(beforeContent) and target.endswith(afterContent):
-                    deps, rules = targets[key]
-                    newKey = target
-                    newReplacement = newKey[sepIndex : len(newKey) - len(afterContent)]
-                    deps = " ".join(deps)
-                    deps = deps.split("%")
-                    deps = newReplacement.join(deps)
-                    deps = deps.split(" ")
+            if self.isPatternSubstRecipe(key):
+                details, rules = targets[key]
+                generates, deps = details
 
-                    targets[newKey] = (deps, rules)
-                    generatedTarget = True
-                    break
+                for targetTest in generates:
+                    if targetTest == target:
+                        # Replace all '%' symbols with wildcard symbols.
+                        dependsOn = runner.shSplit(self.patsubst("%", "*", dependsOn.join(" ")), splitChars={ ' ', ';' })
+
+                        potentialNewRules.append((dependsOn, rules))
+                        continue
+                    elif not '%' in targetTest:
+                        continue
+
+                    sepIndex = targetTest.index("%")
+                    beforeContent = targetTest[:sepIndex]
+                    afterContent = targetTest[sepIndex + 1 :]
+
+                    if target.startswith(beforeContent) and target.endswith(afterContent):
+                        newKey = target
+                        newReplacement = newKey[sepIndex : len(newKey) - len(afterContent)]
+                        deps = " ".join(deps)
+                        deps = escaper.escapeSafeSplit(deps, "%", "\\")
+                        deps = newReplacement.join(deps)
+                        deps = deps.split(" ")
+
+                        potentialNewRules.append((deps, rules))
             elif key.startswith(".") and "." in key[1:]:
                 shortKey = key[1:] # Remove the first '.'
                 parts = shortKey.split('.') # NOT a regex.
@@ -282,10 +319,33 @@ class MakeUtil:
                     withoutExtension = target[: - len(creates)]
                     
                     newDeps.append(withoutExtension + requires)
-                    
-                    targets[target] = (newDeps, rules)
-                    generatedTarget = True
-                    break
+
+                    potentialNewRules.append((newDeps, rules))
+            # Is it the same thing, just formatted differently?
+            elif os.path.abspath(key) == os.path.abspath(target):
+                rules, deps = targets[key]
+                potentialNewRules.append((rules, deps))
+        
+        fewestUngeneratableDeps = None
+        for deps,rules in potentialNewRules:
+            unsatisfiableCount = 0
+
+            # Expand wildcard expressions.
+            globbedDeps = self.globArgs(runner.removeEmpty(deps), macros, False)
+
+            # How many dependencies are we unable to satisfy?
+            for dep in globbedDeps:
+                phony = self.isPhony(dep, targets)
+                exists = self.findFile(dep, macros)
+                if not phony and not exists:
+                    unsatisfiableCount += 1
+            
+            # If we don't have a recipe,
+            # or the current recipe looks better than what we already have.
+            if fewestUngeneratableDeps is None or unsatisfiableCount < fewestUngeneratableDeps:
+                targets[target] = (deps, rules)
+                generatedTarget = True
+                fewestUngeneratableDeps = unsatisfiableCount
         return generatedTarget
 
     # Return True iff [target] is not a "phony" target
@@ -303,9 +363,6 @@ class MakeUtil:
     def prepareGenerateTarget(self, target, targets, macros, visitedSet=None):
         target = target.strip()
         
-        if not target in targets:
-            self.generateRecipeFor(target, targets, macros)
-        
         if visitedSet is None:
             visitedSet = set()
         
@@ -313,7 +370,10 @@ class MakeUtil:
             visitedSet.add(target)
         else: # Circular dependency?
             self.errorUtil.reportError("Circular dependency involving %s!" % target)
-            return True
+            return False
+        
+        if not target in targets:
+            self.generateRecipeFor(target, targets, macros, visitedSet)
         
         targetPath = self.findFile(target, macros)
         selfExists = targetPath != None
@@ -546,43 +606,7 @@ class MakeUtil:
         if not patternBased:
             return re.sub(re.escape(replaceText), replaceWith, text)
         else: # Using $(patsubst pattern,replacement,text)
-            words = SPACE_CHARS.split(text.strip())
-            result = []
-
-            pattern = escaper.escapeSafeSplit(replaceText, '%', '\\')
-            replaceWith = escaper.escapeSafeSplit(replaceWith, '%', '\\')
-
-            replaceAll = False
-            replaceExact = False
-            staticReplace = False
-
-            if len(pattern) == 1:
-                replaceAll = pattern == ''
-                replaceExact = pattern[0]
-            
-            if len(replaceWith) <= 1:
-                staticReplace = True
-
-            while len(pattern) < 2:
-                pattern.append('')
-            while len(replaceWith) < 2:
-                replaceWith.append('')
-            
-            pattern[1] = '%'.join(pattern[1:])
-            replaceWith[1] = '%'.join(replaceWith[1:])
-
-            for word in words:
-                if replaceExact == False and (replaceAll or  word.startswith(pattern[0]) and word.endswith(pattern[1])):
-                    if not staticReplace:
-                        result.append(replaceWith[0] + word[len(pattern[0]) : -len(pattern[1])] + replaceWith[1])
-                    else:
-                        result.append(replaceWith[0])
-                elif replaceExact == word.strip():
-                    result.append('%'.join(runner.removeEmpty(replaceWith)))
-                else:
-                    result.append(word)
-            
-            return " ".join(runner.removeEmpty(result))
+            return self.patsubst(replaceText, replaceWith, text)
 
     # Example: $(word 3, get the third word) -> third
     # If the word with the given index does not exist, return
@@ -630,7 +654,46 @@ class MakeUtil:
         except IndexError:
             return ""
 
+    # Replace all patterns defined by replaceText with replaceWith
+    # in text. 
+    def patsubst(self, replaceText, replaceWith, text):
+        words = SPACE_CHARS.split(text.strip())
+        result = []
 
+        pattern = escaper.escapeSafeSplit(replaceText, '%', '\\')
+        replaceWith = escaper.escapeSafeSplit(replaceWith, '%', '\\')
+
+        replaceAll = False
+        replaceExact = False
+        staticReplace = False
+
+        if len(pattern) == 1:
+            replaceAll = pattern == ''
+            replaceExact = pattern[0]
+        
+        if len(replaceWith) <= 1:
+            staticReplace = True
+
+        while len(pattern) < 2:
+            pattern.append('')
+        while len(replaceWith) < 2:
+            replaceWith.append('')
+        
+        pattern[1] = '%'.join(pattern[1:])
+        replaceWith[1] = '%'.join(replaceWith[1:])
+
+        for word in words:
+            if replaceExact == False and (replaceAll or  word.startswith(pattern[0]) and word.endswith(pattern[1])):
+                if not staticReplace:
+                    result.append(replaceWith[0] + word[len(pattern[0]) : -len(pattern[1])] + replaceWith[1])
+                else:
+                    result.append(replaceWith[0])
+            elif replaceExact == word.strip():
+                result.append('%'.join(runner.removeEmpty(replaceWith)))
+            else:
+                result.append(word)
+        
+        return " ".join(runner.removeEmpty(result))
 
     ## Intended for use directly by clients:
 

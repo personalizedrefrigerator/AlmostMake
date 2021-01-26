@@ -1,3 +1,10 @@
+## 0.5.0
+ * Multiple template recipes with the same target format (e.g. %.o: %.c and %.o: %.cc)
+   are no longer merged into a single target.
+ * Hide `\[` and `\]` characters in `almake_shell`'s interactive prompt.
+   * Define `\h` and `\w` escape sequences for `PS1` and `PS2` in `almake_shell`'s prompt.
+ * By default, expand undefined macros to nothing, rather than stopping the build and displaying an error.
+
 ## 0.4.1
  * If running `make a`, for files `a`, `b`, and `c`, if `a` depends on `b` and 
       `b` depends on `c`, previously, a change to `c` would not remake `a`! This has been fixed!

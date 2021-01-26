@@ -18,9 +18,9 @@ class SimpleShell(cmd.Cmd):
     prompt = '$ '
     command = ''
     macroUtil = macroUtility.MacroUtil()
+    promptEscapeSequences = escapeParser.DEFAULT_ESCAPE_SEQUENCES.copy()
     
     def __init__(self, useBaseCommands=True, defaultFlags={}):
-        self.updatePrompt()
         self.macros = self.macroUtil.getDefaultMacros()
         self.defaultFlags = defaultFlags
         self.state = runner.ShellState()
@@ -30,18 +30,35 @@ class SimpleShell(cmd.Cmd):
         
         self.macroUtil.setStopOnError(False)
 
+        # Additional escape sequences to be (more) compatible
+        # with other shells that use the PS1, PS2, etc. environment
+        # variables.
+        self.promptEscapeSequences["["] = ""
+        self.promptEscapeSequences["]"] = ""
+        self.updatePrompt()
         
         cmd.Cmd.__init__(self)
     
     def updatePrompt(self):
+        # Fill in prompt-related environment variables.
+        self.promptEscapeSequences["w"] = self.state.cwd
+
+        try:
+            uname = os.uname()
+            self.promptEscapeSequences["h"] = uname.nodename
+        except:
+            self.promptEscapeSequences["h"] = "unknown"
+
+        # Set the prompt.
         if "PS1" in os.environ:
-            self.prompt = escapeParser.parseEscapes(os.environ["PS1"])
+            self.prompt = escapeParser.parseEscapes(os.environ["PS1"], self.promptEscapeSequences)
         else:
             self.prompt = '$ '
         
         if self.command != "":
             if "PS2" in os.environ:
-                self.prompt = escapeParser.parseEscapes(os.environ["PS2"])
+                self.prompt = escapeParser.parseEscapes(os.environ["PS2"], 
+                        escapes=self.promptEscapeSequences)
             else:
                 self.prompt = ". "
     

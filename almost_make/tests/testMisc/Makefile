@@ -4,7 +4,7 @@
 
 clean: 
 
-check: bracketCheck vpathCheck vpathCheck2 test2
+check: bracketCheck vpathCheck vpathCheck2 test2 testPrintExpanded
 	$(MAKE) -C subdir1 -n | grep "echo"
 	$(MAKE) -C includeTest
 	@echo PASS | grep PASS
@@ -19,7 +19,11 @@ bracketCheck: Foo2
 	echo ${A} | grep "Foo"
 
 vpathCheck%:
-	cd $@ && $(MAKE)
+	cd $@ && \
+	$(MAKE)
+
+testPrintExpanded:
+	$(MAKE) --print-expanded clean
 
 # A GNUMake-style empty recipe
 test2:	;

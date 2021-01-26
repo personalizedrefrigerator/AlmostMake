@@ -27,11 +27,17 @@ class MacroUtil:
     lazyEvalConditions = []   # Don't expand macros on a line when in define & expand mode if any of these conditions are true.
     conditionals = False
     errorLogger = errorUtil.ErrorUtil()
+    expandUndefinedMacrosTo = None
     
     def setStopOnError(self, stopOnErr):
         self.errorLogger.setStopOnError(stopOnErr)
     def setSilent(self, silent):
         self.errorLogger.setSilent(silent)
+    
+    # By default, an error is thrown when we attempt to expand undefined macros.
+    # Instead, expand these macros to [expansion].
+    def setDefaultMacroExpansion(self, expansion):
+        self.expandUndefinedMacrosTo = expansion
     def setMacroCommands(self, commands):
         self.macroCommands = commands
     def addMacroDefCondition(self, condition):
@@ -273,8 +279,11 @@ From %s, parsed arguments: %s""" %
                 elif words[0] in self.macroCommands:
                     argText = self.expandMacroUsages(" ".join(words[1:]), macros)
                     buff = self.macroCommands[words[0]](argText, macros)
-                else:
+                elif self.expandUndefinedMacrosTo is None:
+                    # If no default macro value, display an error message.
                     self.errorLogger.reportError("Undefined macro %s. Context: %s." % (buff, line))
+                else:
+                    buff = self.expandUndefinedMacrosTo # If we continue, expand to nothing.
 
                 expanded += buff + afterBuff
 #               print("Expanded to %s." % (buff + afterBuff))

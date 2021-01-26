@@ -536,7 +536,8 @@ def customMkdir(args, stdin, stdout, stderr, state):
         'parents', 'verbose'
     })
 
-    mode = 0o664
+    # Linux: To cd into a directory, we need execute permissions.
+    mode = 0o775
     success = True
 
     if 'mode' in args:
