@@ -369,8 +369,10 @@ class MakeUtil:
         if not target in visitedSet:
             visitedSet.add(target)
         else: # Circular dependency?
-            self.errorUtil.reportError("Circular dependency involving %s!" % target)
-            return False
+            self.errorUtil.logWarning("Circular dependency involving %s!!!" % target)
+
+            # Just return whether it exists or not.
+            return self.findFile(target, macros) == None
         
         if not target in targets:
             self.generateRecipeFor(target, targets, macros, visitedSet)
