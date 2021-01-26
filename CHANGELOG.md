@@ -1,4 +1,4 @@
-## 0.5.1 (dev)
+## 0.5.1
  * Fix circular dependency warnings shown when there are no circular dependencies.
  * `\u` expands to the username in `almake_shell`.
 
