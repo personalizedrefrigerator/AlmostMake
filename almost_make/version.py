@@ -2,7 +2,7 @@
 
 import sys
 
-VERSION_STRING = "0.5.1"
+VERSION_STRING = "0.5.2"
 
 def printVersion(outFile = sys.stdout):
     print("AlmostMake v%s" % VERSION_STRING, file=outFile)
@@ -10,7 +10,7 @@ def printVersion(outFile = sys.stdout):
     print("""
 BSD 3-Clause License
 
-Copyright (c) 2020, Henry Heino
+Copyright (c) 2020-2021, Henry Heino
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

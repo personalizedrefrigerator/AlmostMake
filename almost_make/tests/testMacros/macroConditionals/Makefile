@@ -4,7 +4,7 @@ foo = 22
 PASS = echo 'PASS' | grep 'PASS'
 FAIL = echo 'FAIL' | grep 'PASS'
 
-all: testIfDef testIfnDef testEql testNeql testNested testStacked testChain
+all: testIfDef testIfnDef testEql testNeql testNested testStacked testChain testAltSyntax
 ifneq '1' '1'
 #	$(PASS)
 	$(FAIL)
@@ -67,6 +67,22 @@ ifdef foo
 	echo $$A | grep 1
 endif
 	$(PASS)
+
+testAltSyntax:
+	echo "ifeq (foo, bar) syntax."
+ifeq (f,foo)
+	$(FAIL)
+else ifeq (,)
+	$(PASS)
+else
+	$(FAIL)
+endif
+ifneq (a,a)
+	$(FAIL)
+endif
+ifneq ($(PASS), $(PASS))
+	$(FAIL)
+endif
 
 testChain:
 	echo "START OF CHAIN......"

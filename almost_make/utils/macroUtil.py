@@ -123,8 +123,17 @@ class MacroUtil:
             args = runner.shSplit(argText, { ',', ' ', '\t', '(', ')' })
             args = runner.removeEqual(runner.unwrapParens(args), ',')
 
+            # If ifeq (foo, bar baz) syntax,
+            if len(args) > 2 and argText.strip()[0] == '(':
+                args = runner.shSplit(runner.unwrapParens(argText), { ',' })
+
+                if len(args) == 3:
+                    if args[1] != ",":
+                        self.errorLogger.reportError("Binary conditional %s uses ifeq (A, B) syntax, but does not contain a separating comma!" % str(conditional))
+                    args = [args[0], args[2]]
+
             # shSplit removes empty elements. Add in an empty element if necessary.
-            if len(args) == 1:
+            while len(args) < 2:
                 args.append('')
 
             if len(args) != 2:
