@@ -479,6 +479,8 @@ class MakeUtil:
                 command = command[1:]
             elif not self.silent:
                 print(command)
+                # Flush output so that it's not out of order when there's no TTY.
+                sys.stdout.flush()
             haltOnFail = not command.startswith("-")
             if command.startswith("-"):
                 command = command[1:]
