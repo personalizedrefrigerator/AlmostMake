@@ -1,3 +1,6 @@
+## 0.5.2
+ * Flush `stdout` so that commands aren't out-of-order when there's no TTY (added by [PR #21](https://github.com/personalizedrefrigerator/AlmostMake/pull/21)).
+
 ## 0.5.1
  * Fix circular dependency warnings shown when there are no circular dependencies.
  * `\u` expands to the username in `almake_shell`.
